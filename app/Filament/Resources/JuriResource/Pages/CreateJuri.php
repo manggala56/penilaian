@@ -27,6 +27,7 @@ class CreateJuri extends CreateRecord
         $userData = [
             'name' => $this->form->getComponents()[0]->getChildComponents()[0]->getState(),
             'email' => $this->form->getComponents()[0]->getChildComponents()[1]->getState(),
+            'role'=>'juri',
             'password' => Hash::make($this->form->getComponents()[0]->getChildComponents()[2]->getState()),
         ];
 
