@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Juri extends Model
 {
@@ -21,6 +22,9 @@ class Juri extends Model
         'is_active' => 'boolean'
     ];
 
+    // Tambahkan appends untuk accessor
+    protected $appends = ['current_evaluations_count'];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -31,7 +35,7 @@ class Juri extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function evaluations()
+    public function evaluations(): HasManyThrough
     {
         return $this->hasManyThrough(
             Evaluation::class,
@@ -40,11 +44,15 @@ class Juri extends Model
             'user_id', // Foreign key on evaluations table
             'user_id', // Local key on juri table
             'id' // Local key on users table
-        )->where('evaluations.created_at', '>=', $this->created_at);
+        );
     }
 
     public function getCurrentEvaluationsCountAttribute(): int
     {
+        if ($this->relationLoaded('evaluations')) {
+            return $this->evaluations->count();
+        }
+
         return $this->evaluations()->count();
     }
 

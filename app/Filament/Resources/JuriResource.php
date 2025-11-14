@@ -90,9 +90,9 @@ class JuriResource extends Resource
                     ->label('Maks Nilai')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('current_evaluations_count')
+                    Tables\Columns\TextColumn::make('evaluations_count')
                     ->label('Sudah Dinilai')
-                    ->getStateUsing(fn ($record) => $record->current_evaluations_count)
+                    ->counts('evaluations')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Status')
@@ -131,8 +131,9 @@ class JuriResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['user', 'category'])
-            ->orderBy('created_at', 'desc');
+        ->with(['user', 'category', 'evaluations'])
+        ->withCount(['evaluations as current_evaluations_count'])
+        ->orderBy('created_at', 'desc');
     }
 
     public static function getPages(): array
