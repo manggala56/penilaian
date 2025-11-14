@@ -16,15 +16,14 @@ class Juri extends Model
         'is_active',
         'expertise',
         'max_evaluations',
-        'can_judge_all_categories' // tambahkan ini
+        'can_judge_all_categories'
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'can_judge_all_categories' => 'boolean' // tambahkan ini
+        'can_judge_all_categories' => 'boolean'
     ];
 
-    // Tambahkan appends untuk accessor
     protected $appends = ['current_evaluations_count'];
 
     public function user(): BelongsTo
@@ -103,5 +102,18 @@ class Juri extends Model
         }
 
         return $this->category ? $this->category->name : 'Tidak ada kategori';
+    }
+
+    // Validasi sebelum save
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($juri) {
+            // Jika bisa menilai semua kategori, set category_id menjadi null
+            if ($juri->can_judge_all_categories) {
+                $juri->category_id = null;
+            }
+        });
     }
 }

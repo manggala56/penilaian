@@ -8,6 +8,7 @@ use App\Models\User;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class CreateJuri extends CreateRecord
 {
@@ -15,23 +16,30 @@ class CreateJuri extends CreateRecord
 
     protected function handleRecordCreation(array $data): Juri
     {
-        // Ambil data user dari form components
+        // Validasi: jika tidak bisa menilai semua kategori, category_id harus diisi
+        if (!$data['can_judge_all_categories'] && empty($data['category_id'])) {
+            throw ValidationException::withMessages([
+                'category_id' => 'Kategori harus dipilih ketika juri tidak bisa menilai semua kategori.',
+            ]);
+        }
+
+        // Ambil data user dari form
         $userData = [
             'name' => $this->form->getComponents()[0]->getChildComponents()[0]->getState(),
             'email' => $this->form->getComponents()[0]->getChildComponents()[1]->getState(),
-            'role' => 'juri',
             'password' => Hash::make($this->form->getComponents()[0]->getChildComponents()[2]->getState()),
         ];
 
+        // Create user account first
         $user = User::create($userData);
 
-        if ($data['can_judge_all_categories']) {
-            $data['category_id'] = null;
-        }
+        // Jika juri universal, set category_id menjadi null
+        $categoryId = $data['can_judge_all_categories'] ? null : $data['category_id'];
 
+        // Then create juri record
         return Juri::create([
             'user_id' => $user->id,
-            'category_id' => $data['category_id'],
+            'category_id' => $categoryId,
             'expertise' => $data['expertise'],
             'max_evaluations' => $data['max_evaluations'],
             'is_active' => $data['is_active'],

@@ -28,7 +28,6 @@ class JuriResource extends Resource
     {
         return $form
             ->schema([
-                // Bagian ini HANYA akan muncul di halaman 'Create'
                 Forms\Components\Section::make('Informasi Akun Juri Baru')
                     ->description('Buat akun user baru yang akan ditugaskan sebagai juri.')
                     ->schema([
