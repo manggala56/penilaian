@@ -10,6 +10,13 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Storage;
+use Filament\Forms\Components\FileUpload;
+use App\Imports\ParticipantsImport;
+use App\Exports\ParticipantsTemplateExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Filament\Notifications\Notification;
+// Hapus import Action yang lama
+// use Filament\Actions\Action;
 
 class ParticipantResource extends Resource
 {
@@ -81,6 +88,59 @@ class ParticipantResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                // Gunakan Tables\Actions\Action untuk header actions
+                Tables\Actions\Action::make('download_template')
+                    ->label('Download Template')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('primary')
+                    ->action(fn () => Excel::download(new ParticipantsTemplateExport, 'template_peserta.xlsx')),
+
+                Tables\Actions\Action::make('import')
+                    ->label('Impor Excel')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('success')
+                    ->form([
+                        FileUpload::make('attachment')
+                            ->label('Upload Template')
+                            ->required()
+                            ->acceptedFileTypes([
+                                'application/vnd.ms-excel',
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                            ])
+                    ])
+                    ->action(function (array $data) {
+                        try {
+                            Excel::import(new ParticipantsImport, $data['attachment']);
+
+                            Notification::make()
+                                ->title('Impor Berhasil')
+                                ->body('Data peserta telah berhasil diimpor.')
+                                ->success()
+                                ->send();
+                        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+                            $failures = $e->failures();
+                            $errorMessages = [];
+
+                            foreach ($failures as $failure) {
+                                $errorMessages[] = "Baris " . $failure->row() . ": " . implode(", ", $failure->errors());
+                            }
+
+                            Notification::make()
+                                ->title('Impor Gagal: Terdapat Kesalahan Validasi')
+                                ->body(implode("\n", $errorMessages))
+                                ->danger()
+                                ->persistent()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Impor Gagal')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
@@ -125,7 +185,7 @@ class ParticipantResource extends Resource
                 Tables\Actions\Action::make('evaluate')
                     ->label('Nilai')
                     ->icon('heroicon-o-clipboard-document-check')
-                    ->url(fn (Participant $record) => EvaluationResource::getUrl('create', ['participant_id' => $record->id])),
+                    ->url(fn (Participant $record) => \App\Filament\Resources\EvaluationResource::getUrl('create', ['participant_id' => $record->id])),
                 Tables\Actions\Action::make('download')
                     ->label('Download')
                     ->icon('heroicon-o-arrow-down-tray')
@@ -151,7 +211,6 @@ class ParticipantResource extends Resource
             return Storage::disk('public')->download($participant->documents[0]);
         }
 
-        // Untuk multiple files, buat zip
         $zip = new \ZipArchive();
         $zipFileName = 'documents-' . $participant->id . '.zip';
         $zipPath = storage_path('app/public/temp/' . $zipFileName);

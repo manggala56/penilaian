@@ -11,13 +11,17 @@ return new class extends Migration
         Schema::create('participants', function (Blueprint $table) {
             $table->id();
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->string('phone');
+
+            $table->string('name')->nullable();
+            $table->string('email')->unique()->nullable();
+            $table->string('phone')->nullable();
+
             $table->string('institution')->nullable();
-            $table->text('innovation_description');
+
+            $table->text('innovation_description')->nullable();
             $table->string('innovation_title');
-            $table->json('documents')->nullable(); // Menyimpan path file
+
+            $table->json('documents')->nullable();
             $table->boolean('is_approved')->default(false);
             $table->timestamps();
         });
