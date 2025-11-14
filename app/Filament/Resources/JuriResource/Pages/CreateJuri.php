@@ -19,6 +19,7 @@ class CreateJuri extends CreateRecord
         $userData = [
             'name' => request('name'), // Ambil dari request langsung
             'email' => request('email'),
+            'role' => 'juri',
             'password' => Hash::make(request('password')),
         ];
 
