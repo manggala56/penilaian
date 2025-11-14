@@ -15,11 +15,13 @@ class Juri extends Model
         'category_id',
         'is_active',
         'expertise',
-        'max_evaluations'
+        'max_evaluations',
+        'can_judge_all_categories' // tambahkan ini
     ];
 
     protected $casts = [
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
+        'can_judge_all_categories' => 'boolean' // tambahkan ini
     ];
 
     // Tambahkan appends untuk accessor
@@ -63,5 +65,43 @@ class Juri extends Model
         }
 
         return $this->current_evaluations_count < $this->max_evaluations;
+    }
+
+    // Scope untuk juri universal
+    public function scopeUniversal($query)
+    {
+        return $query->where('can_judge_all_categories', true);
+    }
+
+    // Scope untuk juri spesifik
+    public function scopeSpecific($query)
+    {
+        return $query->where('can_judge_all_categories', false);
+    }
+
+    // Method untuk mengecek apakah juri bisa menilai kategori tertentu
+    public function canJudgeCategory($categoryId): bool
+    {
+        return $this->can_judge_all_categories || $this->category_id == $categoryId;
+    }
+
+    // Method untuk mendapatkan kategori yang bisa dinilai
+    public function getJudgableCategories()
+    {
+        if ($this->can_judge_all_categories) {
+            return Category::all();
+        }
+
+        return collect([$this->category]);
+    }
+
+    // Accessor untuk menampilkan nama kategori (termasuk "Semua Kategori")
+    public function getCategoryNameAttribute()
+    {
+        if ($this->can_judge_all_categories) {
+            return 'Semua Kategori';
+        }
+
+        return $this->category ? $this->category->name : 'Tidak ada kategori';
     }
 }
