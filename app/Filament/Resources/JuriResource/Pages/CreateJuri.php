@@ -16,35 +16,67 @@ class CreateJuri extends CreateRecord
 
     protected function handleRecordCreation(array $data): Juri
     {
-        // Validasi: jika tidak bisa menilai semua kategori, category_id harus diisi
-        if (!$data['can_judge_all_categories'] && empty($data['category_id'])) {
-            throw ValidationException::withMessages([
-                'category_id' => 'Kategori harus dipilih ketika juri tidak bisa menilai semua kategori.',
+        \DB::beginTransaction();
+
+        try {
+
+            \Log::info('Data received in CreateJuri:', $data);
+
+            if (!$data['can_judge_all_categories'] && empty($data['category_id'])) {
+                throw ValidationException::withMessages([
+                    'category_id' => 'Kategori harus dipilih ketika juri tidak bisa menilai semua kategori.',
+                ]);
+            }
+
+            $user = User::create([
+                'name' => $data['name'] ?? $this->getUserDataFromForm('name'),
+                'email' => $data['email'] ?? $this->getUserDataFromForm('email'),
+                'role'=> 'juri',
+                'password' => Hash::make($data['password'] ?? $this->getUserDataFromForm('password')),
             ]);
+            $categoryId = $data['can_judge_all_categories'] ? null : $data['category_id'];
+
+            \Log::info('Creating Juri with data:', [
+                'user_id' => $user->id,
+                'category_id' => $categoryId,
+                'can_judge_all_categories' => $data['can_judge_all_categories']
+            ]);
+            $juri = Juri::create([
+                'user_id' => $user->id,
+                'category_id' => $categoryId,
+                'expertise' => $data['expertise'] ?? null,
+                'max_evaluations' => $data['max_evaluations'] ?? null,
+                'is_active' => $data['is_active'] ?? true,
+                'can_judge_all_categories' => $data['can_judge_all_categories'] ?? false,
+            ]);
+
+            \DB::commit();
+            return $juri;
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Log::error('Error creating Juri: ' . $e->getMessage());
+            throw $e;
         }
+    }
 
-        // Ambil data user dari form
-        $userData = [
-            'name' => $this->form->getComponents()[0]->getChildComponents()[0]->getState(),
-            'email' => $this->form->getComponents()[0]->getChildComponents()[1]->getState(),
-            'role'=>'juri',
-            'password' => Hash::make($this->form->getComponents()[0]->getChildComponents()[2]->getState()),
-        ];
+    private function getUserDataFromForm(string $field)
+    {
+        try {
+            $section = $this->form->getComponents()[0];
+            $components = $section->getChildComponents();
 
-        // Create user account first
-        $user = User::create($userData);
+            foreach ($components as $component) {
+                if ($component->getName() === $field) {
+                    return $component->getState();
+                }
+            }
 
-        // Jika juri universal, set category_id menjadi null
-        $categoryId = $data['can_judge_all_categories'] ? null : $data['category_id'];
+            return $this->form->getState()[$field] ?? null;
 
-        // Then create juri record
-        return Juri::create([
-            'user_id' => $user->id,
-            'category_id' => $categoryId,
-            'expertise' => $data['expertise'],
-            'max_evaluations' => $data['max_evaluations'],
-            'is_active' => $data['is_active'],
-            'can_judge_all_categories' => $data['can_judge_all_categories'],
-        ]);
+        } catch (\Exception $e) {
+            \Log::error("Error getting $field from form: " . $e->getMessage());
+            return null;
+        }
     }
 }

@@ -56,15 +56,17 @@ class JuriResource extends Resource
                     ->visibleOn('create')
                     ->columns(2),
 
+                // Section Informasi Juri
                 Forms\Components\Section::make('Informasi Juri')
                     ->schema([
+                        // User info (hanya edit)
                         Forms\Components\Select::make('user_id')
                             ->label('User Juri')
                             ->relationship('user', 'name')
                             ->visibleOn('edit')
                             ->disabled(),
 
-                        // Toggle untuk menentukan apakah juri bisa menilai semua kategori
+                        // Toggle universal juri
                         Forms\Components\Toggle::make('can_judge_all_categories')
                             ->label('Bisa Menilai Semua Kategori')
                             ->default(false)
@@ -72,18 +74,26 @@ class JuriResource extends Resource
                             ->helperText('Jika diaktifkan, juri ini dapat menilai peserta dari semua kategori')
                             ->columnSpanFull(),
 
-                        // Field kategori hanya muncul jika tidak menilai semua kategori
+                        // Category selection (hanya untuk non-universal)
                         Forms\Components\Select::make('category_id')
                             ->label('Kategori Khusus')
                             ->relationship('category', 'name')
                             ->searchable()
                             ->preload()
-                            ->required(fn (Forms\Get $get): bool => !$get('can_judge_all_categories'))
-                            ->hidden(fn (Forms\Get $get): bool => $get('can_judge_all_categories'))
+                            ->required(fn (Forms\Get $get): bool =>
+                                !$get('can_judge_all_categories')
+                            )
+                            ->hidden(fn (Forms\Get $get): bool =>
+                                $get('can_judge_all_categories')
+                            )
+                            ->dehydrated(fn (Forms\Get $get): bool =>
+                                !$get('can_judge_all_categories')
+                            )
                             ->helperText(fn (Forms\Get $get): string =>
                                 $get('can_judge_all_categories')
                                     ? ''
-                                    : 'Pilih kategori khusus yang akan dinilai oleh juri ini'),
+                                    : 'Pilih kategori khusus yang akan dinilai oleh juri ini'
+                            ),
 
                         Forms\Components\Textarea::make('expertise')
                             ->label('Bidang Keahlian')
