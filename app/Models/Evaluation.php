@@ -20,6 +20,16 @@ class Evaluation extends Model
         'evaluation_date' => 'date',
         'final_score' => 'decimal:2'
     ];
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($evaluation) {
+            if (Auth::check() && !$evaluation->user_id) {
+                $evaluation->user_id = Auth::id();
+            }
+        });
+    }
 
     public function participant(): BelongsTo
     {
