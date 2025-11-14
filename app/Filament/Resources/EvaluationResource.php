@@ -28,6 +28,9 @@ class EvaluationResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Informasi Penilaian')
                     ->schema([
+                        Forms\Components\Hidden::make('user_id')
+                        ->default(Auth::id())
+                        ->required(),
                         Forms\Components\Select::make('participant_id')
                             ->label('Peserta')
                             ->relationship('participant', 'name')
