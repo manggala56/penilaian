@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Juri extends Model
 {
-    protected $table = 'juris';
+    protected $table = 'juri';
 
     protected $fillable = [
         'user_id',
