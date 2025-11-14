@@ -40,10 +40,10 @@ class Juri extends Model
         return $this->hasManyThrough(
             Evaluation::class,
             User::class,
-            'id', // Foreign key on users table
-            'user_id', // Foreign key on evaluations table
-            'user_id', // Local key on juri table
-            'id' // Local key on users table
+            'id',
+            'user_id',
+            'user_id',
+            'id'
         );
     }
 
