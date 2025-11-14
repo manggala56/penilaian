@@ -13,23 +13,29 @@ class CreateJuri extends CreateRecord
 {
     protected static string $resource = JuriResource::class;
 
-    protected function mutateFormDataBeforeCreate(array $data): array
+    protected function handleRecordCreation(array $data): Juri
     {
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
+        // Ambil data user dari form components
+        $userData = [
+            'name' => $this->form->getComponents()[0]->getChildComponents()[0]->getState(),
+            'email' => $this->form->getComponents()[0]->getChildComponents()[1]->getState(),
             'role' => 'juri',
-            'password' => Hash::make($data['password']),
-        ]);
+            'password' => Hash::make($this->form->getComponents()[0]->getChildComponents()[2]->getState()),
+        ];
+
+        $user = User::create($userData);
 
         if ($data['can_judge_all_categories']) {
             $data['category_id'] = null;
         }
 
-        $data['user_id'] = $user->id;
-
-        unset($data['name'], $data['email'], $data['password']);
-
-        return $data;
+        return Juri::create([
+            'user_id' => $user->id,
+            'category_id' => $data['category_id'],
+            'expertise' => $data['expertise'],
+            'max_evaluations' => $data['max_evaluations'],
+            'is_active' => $data['is_active'],
+            'can_judge_all_categories' => $data['can_judge_all_categories'],
+        ]);
     }
 }
