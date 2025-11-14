@@ -15,16 +15,22 @@ class CreateJuri extends CreateRecord
 
     protected function handleRecordCreation(array $data): Juri
     {
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
+        // Data untuk membuat user baru
+        $userData = [
+            'name' => request('name'), // Ambil dari request langsung
+            'email' => request('email'),
+            'password' => Hash::make(request('password')),
+        ];
 
+        // Create user account first
+        $user = User::create($userData);
+
+        // Jika juri universal, set category_id menjadi null
         if ($data['can_judge_all_categories']) {
             $data['category_id'] = null;
         }
 
+        // Then create juri record
         return Juri::create([
             'user_id' => $user->id,
             'category_id' => $data['category_id'],
