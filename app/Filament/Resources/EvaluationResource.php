@@ -69,8 +69,12 @@ class EvaluationResource extends Resource
                                     ->required()
                                     ->disabled(fn ($context) => $context === 'edit')
                                     ->distinct()
-                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
-                                Forms\Components\TextInput::make('score')
+                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                        static::updateFinalScore($set, $get);
+                                    }),
+                                                        Forms\Components\TextInput::make('score')
                                     ->label('Nilai')
                                     ->numeric()
                                     ->minValue(0)
@@ -88,13 +92,16 @@ class EvaluationResource extends Resource
                             ->required()
                             ->minItems(1)
                             ->reorderable()
-                            ->addActionLabel('Tambah Aspek Penilaian'),
+                            ->addActionLabel('Tambah Aspek Penilaian')
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+                                static::updateFinalScore($set, $get);
+                            }),
 
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
                             ->numeric()
                             ->readOnly()
-                            ->dehydrated(false)
                             ->prefix('Total:'),
                     ]),
             ]);
