@@ -144,8 +144,8 @@ class EvaluationResource extends Resource
                                 static::updateFinalScore($set, $get);
                             })
                             // ->hidden() Anda sudah benar
-                            ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id'))
-                            ->dehydrated(false), // <-- TAMBAHKAN INI
+                            ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id')),
+                            // ->dehydrated(false), // <-- TAMBAHKAN INI
 
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
