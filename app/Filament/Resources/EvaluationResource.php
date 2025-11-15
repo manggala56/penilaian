@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class EvaluationResource extends Resource
 {
+    // ... (properti model dan navigasi tetap sama) ...
     protected static ?string $model = Evaluation::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
@@ -44,54 +45,37 @@ class EvaluationResource extends Resource
                             // Nonaktifkan pilihan peserta di halaman edit
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
-                            // Hook ini berjalan saat nilai DIPILIH (di halaman create)
+
+                            // --- AWAL PERBAIKAN 1 ---
+                            // Hook ini berjalan saat nilai DIPILIH (di halaman create murni)
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
-                                if ($state) {
-                                    $participant = Participant::with('category')->find($state);
-                                    $categoryId = $participant?->category_id;
-                                    $set('category_name', $participant?->category?->name ?? '');
-                                    $set('category_id', $categoryId);
-
-                                    // Hanya pre-fill jika ini halaman 'create'
-                                    if ($livewire instanceof Pages\CreateEvaluation) {
-                                        if ($categoryId) {
-                                            $aspects = Aspect::where('category_id', $categoryId)
-                                                            ->orderBy('id') // Pastikan urutan konsisten
-                                                            ->get();
-
-                                            // Buat data default untuk repeater
-                                            $scoresData = $aspects->map(function ($aspect) {
-                                                return [
-                                                    'aspect_id' => $aspect->id,
-                                                    'aspect_name' => $aspect->name,
-                                                    'score' => null,
-                                                    'comment' => '',
-                                                ];
-                                            })->toArray();
-
-                                            // Set data ke repeater 'scores'
-                                            $set('scores', $scoresData);
-                                        } else {
-                                            $set('scores', []); // Kosongkan jika kategori tidak ditemukan
-                                        }
-                                    }
-                                } else {
-                                    // Kosongkan jika tidak ada peserta
-                                    $set('category_name', '');
-                                    $set('category_id', null);
-                                    $set('scores', []);
+                                // Cek $livewire untuk pastikan ini halaman Create
+                                if ($livewire instanceof Pages\CreateEvaluation) {
+                                    static::fillScoresByParticipant($state, $set, $livewire);
                                 }
                             })
-                            // --- AWAL PERBAIKAN ---
-                            // Hook ini berjalan saat form DIMUAT (di halaman edit)
-                            ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
-                                if ($context === 'edit' && $state) {
-                                    $participant = Participant::with('category')->find($state);
-                                    $set('category_name', $participant?->category?->name ?? '');
-                                    $set('category_id', $participant?->category_id ?? null);
+                            // Hook ini berjalan saat form DIMUAT
+                            ->afterStateHydrated(function ($state, Forms\Set $set, $livewire) {
+                                // $state adalah participant_id yang sudah terisi saat form load
+                                if (!$state) {
+                                    return; // Abaikan jika tidak ada participant_id (create murni)
                                 }
+
+                                // 1. Selalu isi info kategori (untuk Edit dan Create via Relasi)
+                                $participant = Participant::with('category')->find($state);
+                                $categoryId = $participant?->category_id;
+                                $set('category_name', $participant?->category?->name ?? '');
+                                $set('category_id', $categoryId);
+
+                                // 2. Hanya isi 'scores' jika ini halaman CREATE (via Relasi)
+                                if ($livewire instanceof Pages\CreateEvaluation) {
+                                    static::fillScoresByParticipant($state, $set, $livewire);
+                                }
+
+                                // (Untuk halaman EDIT, 'scores' diisi otomatis oleh ->relationship())
                             }),
-                            // --- AKHIR PERBAIKAN ---
+                            // --- AKHIR PERBAIKAN 1 ---
+
                         Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
                             ->label('Kategori')
@@ -117,10 +101,11 @@ class EvaluationResource extends Resource
                                     ->label('Aspek')
                                     ->disabled()
                                     ->dehydrated(false)
-                                    // Fungsi ini memuat nama aspek (baik di create/edit)
+                                    // Memuat nama aspek saat halaman edit
                                     ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get) {
                                         $aspectId = $get('aspect_id');
-                                        if ($aspectId) {
+                                        // Cek jika aspect_name belum di-set (saat load hal. edit)
+                                        if ($aspectId && !$get('aspect_name')) {
                                             $aspect = Aspect::find($aspectId);
                                             $set('aspect_name', $aspect?->name);
                                         }
@@ -168,8 +153,60 @@ class EvaluationResource extends Resource
             ]);
     }
 
+    // ... (updateFinalScore, table, getEloquentQuery, dll. tetap sama) ...
+
+    // --- AWAL PERBAIKAN 2 ---
+    /**
+     * Helper untuk mengisi repeater 'scores' berdasarkan participant_id.
+     */
+    protected static function fillScoresByParticipant($state, Forms\Set $set, $livewire): void
+    {
+        // $state adalah participant_id
+        if ($state) {
+            $participant = Participant::with('category')->find($state);
+            $categoryId = $participant?->category_id;
+
+            // Set info kategori (selalu diperlukan)
+            $set('category_name', $participant?->category?->name ?? '');
+            $set('category_id', $categoryId);
+
+            if ($categoryId) {
+                // Cek apakah scores sudah terisi (misal: karena gagal validasi)
+                // Kita gunakan $livewire->data untuk mendapat state mentah
+                $existingScores = $livewire->data['scores'] ?? [];
+
+                // Hanya isi jika repeater kosong (load pertama kali)
+                if (empty($existingScores)) {
+                    $aspects = Aspect::where('category_id', $categoryId)
+                                    ->orderBy('id')
+                                    ->get();
+
+                    $scoresData = $aspects->map(function ($aspect) {
+                        return [
+                            'aspect_id' => $aspect->id,
+                            'aspect_name' => $aspect->name, // Kita isi namanya
+                            'score' => null,
+                            'comment' => '',
+                        ];
+                    })->toArray();
+
+                    $set('scores', $scoresData);
+                }
+            } else {
+                $set('scores', []); // Kosongkan jika kategori tidak ditemukan
+            }
+        } else {
+            // Kosongkan jika tidak ada peserta
+            $set('category_name', '');
+            $set('category_id', null);
+            $set('scores', []);
+        }
+    }
+    // --- AKHIR PERBAIKAN 2 ---
+
     protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
     {
+        // ... (fungsi ini tidak berubah) ...
         $scores = $get('scores');
         $totalScore = 0;
 
@@ -179,7 +216,6 @@ class EvaluationResource extends Resource
                     $aspect = Aspect::find($score['aspect_id']);
                     if ($aspect) {
                         $weight = $aspect->weight / 100;
-                        // Pastikan max_score tidak nol untuk menghindari division by zero
                         $maxScore = $aspect->max_score > 0 ? $aspect->max_score : 100;
                         $normalizedScore = ($score['score'] / $maxScore) * 100;
                         $totalScore += $normalizedScore * $weight;
@@ -193,6 +229,7 @@ class EvaluationResource extends Resource
 
     public static function table(Table $table): Table
     {
+        // ... (tidak berubah) ...
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('participant.name')
@@ -235,11 +272,11 @@ class EvaluationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        // ... (tidak berubah) ...
         $query = parent::getEloquentQuery()->with(['participant.category', 'user']);
 
         $user = Auth::user();
         if ($user->role === 'juri') {
-            // Jika menggunakan relasi langsung ke user
             $query->where('user_id', $user->id);
         }
 
@@ -248,6 +285,7 @@ class EvaluationResource extends Resource
 
     public static function getPages(): array
     {
+        // ... (tidak berubah) ...
         return [
             'index' => Pages\ListEvaluations::route('/'),
             'create' => Pages\CreateEvaluation::route('/create'),
@@ -257,21 +295,25 @@ class EvaluationResource extends Resource
 
     public static function canCreate(): bool
     {
+        // ... (tidak berubah) ...
         return Auth::user()->role == 'juri';
     }
 
     public static function canEdit(Model $record): bool
     {
+        // ... (tidak berubah) ...
         return Auth::user()->role == 'juri';
     }
 
     public static function canDelete(Model $record): bool
     {
+        // ... (tidak berubah) ...
         return Auth::user()->role == 'juri';
     }
 
     public static function canDeleteAny(): bool
     {
+        // ... (tidak berubah) ...
         return Auth::user()->role == 'juri';
     }
 }
