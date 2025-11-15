@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Collection;
 
 class Juri extends Model
 {
@@ -31,14 +32,14 @@ class Juri extends Model
         return $this->belongsTo(User::class);
     }
 
-    // Many-to-many relationship dengan categories
+    // Many-to-many relationship dengan categories - PERBAIKAN: pastikan nama tabel pivot benar
     public function categories(): BelongsToMany
     {
-        return $this->belongsToMany(Category::class, 'juri_category')
+        return $this->belongsToMany(Category::class, 'juri_category', 'juri_id', 'category_id')
                     ->withTimestamps();
     }
 
-    // Relasi langsung dengan evaluations melalui user_id
+    // Relasi langsung dengan evaluations
     public function evaluations(): HasMany
     {
         return $this->hasMany(Evaluation::class, 'user_id', 'user_id');
@@ -47,7 +48,6 @@ class Juri extends Model
     // Accessor untuk jumlah evaluasi saat ini
     public function getCurrentEvaluationsCountAttribute(): int
     {
-        // Gunakan count() langsung pada query untuk menghindari N+1 problem
         return $this->evaluations()->count();
     }
 
@@ -58,14 +58,11 @@ class Juri extends Model
             return 'Semua Kategori';
         }
 
-        if ($this->relationLoaded('categories')) {
-            return $this->categories->isNotEmpty()
-                ? $this->categories->pluck('name')->join(', ')
-                : 'Tidak ada kategori';
+        if ($this->relationLoaded('categories') && $this->categories->isNotEmpty()) {
+            return $this->categories->pluck('name')->join(', ');
         }
 
-        // Jika categories tidak diload, ambil data secara eager
-        return $this->categories()->pluck('name')->join(', ') ?: 'Tidak ada kategori';
+        return 'Tidak ada kategori';
     }
 
     public function canEvaluateMore(): bool
@@ -109,12 +106,10 @@ class Juri extends Model
     // Method untuk mengecek apakah juri bisa menilai kategori tertentu
     public function canJudgeCategory($categoryId): bool
     {
-        // Jika juri universal, bisa menilai semua kategori
         if ($this->can_judge_all_categories) {
             return true;
         }
 
-        // Cek apakah kategori ada dalam daftar kategori juri
         if ($this->relationLoaded('categories')) {
             return $this->categories->contains('id', $categoryId);
         }
@@ -123,7 +118,7 @@ class Juri extends Model
     }
 
     // Method untuk mendapatkan kategori yang bisa dinilai
-    public function getJudgableCategories()
+    public function getJudgableCategories(): Collection
     {
         if ($this->can_judge_all_categories) {
             return Category::all();
@@ -133,30 +128,10 @@ class Juri extends Model
     }
 
     // Method untuk sync categories
-    public function syncCategories($categoryIds)
+    public function syncCategories($categoryIds): ?array
     {
         if (!$this->can_judge_all_categories) {
             return $this->categories()->sync($categoryIds);
-        }
-
-        return null;
-    }
-
-    // Method untuk menambah kategori
-    public function addCategory($categoryId)
-    {
-        if (!$this->can_judge_all_categories) {
-            return $this->categories()->syncWithoutDetaching([$categoryId]);
-        }
-
-        return null;
-    }
-
-    // Method untuk menghapus kategori
-    public function removeCategory($categoryId)
-    {
-        if (!$this->can_judge_all_categories) {
-            return $this->categories()->detach($categoryId);
         }
 
         return null;
@@ -168,7 +143,6 @@ class Juri extends Model
         parent::boot();
 
         static::saving(function ($juri) {
-            // Jika bisa menilai semua kategori, hapus semua kategori spesifik
             if ($juri->can_judge_all_categories) {
                 $juri->categories()->detach();
             }
@@ -179,27 +153,15 @@ class Juri extends Model
         });
     }
 
-    // Method helper untuk load relationships yang umum digunakan
-    public function loadCommonRelations()
+    // Method untuk mendapatkan nama juri dari relasi user
+    public function getNameAttribute(): string
     {
-        return $this->load([
-            'user',
-            'categories',
-            'evaluations'
-        ]);
+        return $this->user->name ?? 'Unknown';
     }
 
-    // Method untuk mendapatkan juri yang tersedia untuk evaluasi baru
-    public static function getAvailableJudges($categoryId = null)
+    // Method untuk mendapatkan email juri dari relasi user
+    public function getEmailAttribute(): string
     {
-        return static::active()
-            ->when($categoryId, function ($query) use ($categoryId) {
-                return $query->canJudgeCategory($categoryId);
-            })
-            ->with(['user', 'categories'])
-            ->get()
-            ->filter(function ($juri) {
-                return $juri->canEvaluateMore();
-            });
+        return $this->user->email ?? 'Unknown';
     }
 }
