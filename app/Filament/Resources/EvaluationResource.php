@@ -197,4 +197,8 @@ class EvaluationResource extends Resource
             'edit' => Pages\EditEvaluation::route('/{record}/edit'),
         ];
     }
+    public static function canCreate(): bool
+    {
+        return Auth::user()->role == 'juri';
+    }
 }
