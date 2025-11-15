@@ -48,6 +48,17 @@ class CompetitionResource extends Resource
                         Forms\Components\Toggle::make('is_active')
                             ->label('Aktif')
                             ->default(true),
+                            Forms\Components\Select::make('active_stage_id')
+                            ->label('Tahap Penilaian Aktif')
+                            ->options(function (?Competition $record): array {
+                                if (!$record) {
+                                    return [];
+                                }
+                                return $record->stages()->pluck('name', 'id')->toArray();
+                            })
+                            ->helperText('Simpan lomba ini, lalu buat tahapan di bawah. Setelah itu, Anda bisa memilih tahap aktif di sini.')
+                            ->searchable()
+                            ->default(null),
                     ])->columns(2),
             ]);
     }
@@ -71,6 +82,15 @@ class CompetitionResource extends Resource
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Status')
                     ->boolean(),
+                Tables\Columns\TextColumn::make('activeStage.name')
+                    ->label('Tahap Aktif')
+                    ->badge()
+                    ->default('Belum diatur')
+                    ->color('primary'),
+
+                Tables\Columns\TextColumn::make('stages_count')
+                    ->label('Total Tahap')
+                    ->counts('stages'),
                 Tables\Columns\TextColumn::make('categories_count')
                     ->label('Jumlah Kategori')
                     ->counts('categories'),
@@ -97,7 +117,7 @@ class CompetitionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            // RelationManagers\CategoriesRelationManager::class,
+            RelationManagers\StagesRelationManager::class,
         ];
     }
 

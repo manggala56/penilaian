@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Competition extends Model
 {
@@ -12,7 +14,8 @@ class Competition extends Model
         'description',
         'start_date',
         'end_date',
-        'is_active'
+        'is_active',
+        'active_stage_id',
     ];
 
     protected $casts = [
@@ -29,5 +32,14 @@ class Competition extends Model
     public function activeCategories(): HasMany
     {
         return $this->categories()->where('is_active', true);
+    }
+    public function stages(): HasMany
+    {
+        return $this->hasMany(CompetitionStage::class)->orderBy('stage_order');
+    }
+
+    public function activeStage(): BelongsTo
+    {
+        return $this->belongsTo(CompetitionStage::class, 'active_stage_id');
     }
 }
