@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use \Illuminate\Database\Eloquent\Model;
 
 class EvaluationResource extends Resource
 {
@@ -198,6 +199,20 @@ class EvaluationResource extends Resource
         ];
     }
     public static function canCreate(): bool
+    {
+        return Auth::user()->role == 'juri';
+    }
+    public static function canEdit(Model $record): bool
+    {
+        return Auth::user()->role == 'juri';
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return Auth::user()->role == 'juri';
+    }
+
+    public static function canDeleteAny(): bool
     {
         return Auth::user()->role == 'juri';
     }
