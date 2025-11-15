@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use \Illuminate\Database\Eloquent\Model;
+use Filament\Tables\Grouping\Group;
 // Hapus import Action yang lama
 // use Filament\Actions\Action;
 
@@ -147,6 +148,7 @@ class ParticipantResource extends Resource
                     })
                     ->visible(fn () => Auth::user()->role !== 'juri'),
             ])
+            ->defaultSort('category.name', 'asc') // Urutkan berdasarkan nama kategori
             ->columns([
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
@@ -192,8 +194,10 @@ class ParticipantResource extends Resource
                     ->label('Nilai')
                     ->icon('heroicon-o-clipboard-document-check')
                     ->visible(fn () => Auth::user()->role == 'juri')
-                    ->url(fn (Participant $record) => \App\Filament\Resources\EvaluationResource::getUrl('create', ['participant_id' => $record->id])),
-                Tables\Actions\Action::make('download')
+                    ->url(fn (Participant $record) => \App\Filament\Resources\EvaluationResource::getUrl('create', [
+                        'participant_id' => $record->id
+                    ])),
+                    Tables\Actions\Action::make('download')
                     ->label('Download')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->action(fn (Participant $record) => static::downloadDocuments($record))

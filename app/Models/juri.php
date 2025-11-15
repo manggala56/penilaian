@@ -32,17 +32,15 @@ class Juri extends Model
         return $this->belongsTo(User::class);
     }
 
-    // Many-to-many relationship dengan categories - PERBAIKAN: pastikan nama tabel pivot benar
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class, 'juri_category', 'juri_id', 'category_id')
                     ->withTimestamps();
     }
 
-    // Relasi langsung dengan evaluations
     public function evaluations(): HasMany
     {
-        return $this->hasMany(Evaluation::class, 'user_id', 'user_id');
+        return $this->hasMany(Evaluation::class, 'juri_id'); // Pastikan kolom ini sesuai
     }
 
     // Accessor untuk jumlah evaluasi saat ini

@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EvaluationResource\Pages;
 use App\Models\Evaluation;
 use App\Models\Participant;
+use App\Models\Aspect;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,7 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
-use \Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class EvaluationResource extends Resource
 {
@@ -23,7 +24,7 @@ class EvaluationResource extends Resource
     protected static ?string $navigationLabel = 'Penilaian';
 
     protected static ?string $navigationGroup = 'Manajemen Penilaian';
-    protected static ?int $navigationSort = 4 ;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
@@ -32,21 +33,28 @@ class EvaluationResource extends Resource
                 Forms\Components\Section::make('Informasi Penilaian')
                     ->schema([
                         Forms\Components\Hidden::make('user_id')
-                        ->default(Auth::id())
-                        ->required(),
+                            ->default(Auth::id())
+                            ->required(),
                         Forms\Components\Select::make('participant_id')
                             ->label('Peserta')
                             ->relationship('participant', 'name')
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->default(fn ($livewire) => $livewire->data['participant_id'] ?? null)
+                            ->disabled(fn ($livewire) => isset($livewire->data['participant_id']))
                             ->live()
                             ->afterStateUpdated(function ($state, Forms\Set $set) {
                                 if ($state) {
-                                    $participant = Participant::find($state);
+                                    $participant = Participant::with('category')->find($state);
                                     $set('category_name', $participant?->category?->name ?? '');
+                                    $set('category_id', $participant?->category_id ?? null);
+                                } else {
+                                    $set('category_name', '');
+                                    $set('category_id', null);
                                 }
                             }),
+                        Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
                             ->label('Kategori')
                             ->disabled()
@@ -67,7 +75,17 @@ class EvaluationResource extends Resource
                             ->schema([
                                 Forms\Components\Select::make('aspect_id')
                                     ->label('Aspek')
-                                    ->relationship('aspect', 'name')
+                                    ->options(function (Forms\Get $get) {
+                                        $categoryId = $get('../../category_id');
+                                        if (!$categoryId) {
+                                            return [];
+                                        }
+
+                                        return Aspect::where('category_id', $categoryId)
+                                            ->get()
+                                            ->pluck('name', 'id')
+                                            ->toArray();
+                                    })
                                     ->required()
                                     ->disabled(fn ($context) => $context === 'edit')
                                     ->distinct()
@@ -76,11 +94,19 @@ class EvaluationResource extends Resource
                                     ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                                         static::updateFinalScore($set, $get);
                                     }),
-                                                        Forms\Components\TextInput::make('score')
+                                Forms\Components\TextInput::make('score')
                                     ->label('Nilai')
                                     ->numeric()
                                     ->minValue(0)
-                                    ->maxValue(fn ($get) => \App\Models\Aspect::find($get('aspect_id'))?->max_score ?? 100)
+                                    ->maxValue(function (Forms\Get $get) {
+                                        $aspectId = $get('aspect_id');
+                                        if (!$aspectId) {
+                                            return 100;
+                                        }
+
+                                        $aspect = Aspect::find($aspectId);
+                                        return $aspect?->max_score ?? 100;
+                                    })
                                     ->required()
                                     ->live()
                                     ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
@@ -98,7 +124,8 @@ class EvaluationResource extends Resource
                             ->live()
                             ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
                                 static::updateFinalScore($set, $get);
-                            }),
+                            })
+                            ->hidden(fn (Forms\Get $get) => !$get('category_id')), // Sembunyikan jika belum pilih peserta
 
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
@@ -117,7 +144,7 @@ class EvaluationResource extends Resource
         if (is_array($scores)) {
             foreach ($scores as $score) {
                 if (isset($score['aspect_id'], $score['score'])) {
-                    $aspect = \App\Models\Aspect::find($score['aspect_id']);
+                    $aspect = Aspect::find($score['aspect_id']);
                     if ($aspect) {
                         $weight = $aspect->weight / 100;
                         $normalizedScore = ($score['score'] / $aspect->max_score) * 100;
@@ -174,20 +201,15 @@ class EvaluationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->with(['participant.category', 'user']);
-            $user = Auth::user();
-            $query = parent::getEloquentQuery();
-            if ($user->role === 'juri') {
-                $juri = \App\Models\juri::where('user_id', $user->id)->first();
+        $query = parent::getEloquentQuery()->with(['participant.category', 'user']);
 
-                if ($juri) {
-                    $query->where('juri_id', $juri->id);
-                } else {
-                    $query->whereRaw('1 = 0');
-                }
-            }
-            return $query;
+        $user = Auth::user();
+        if ($user->role === 'juri') {
+            // Jika menggunakan relasi langsung ke user
+            $query->where('user_id', $user->id);
+        }
+
+        return $query;
     }
 
     public static function getPages(): array
@@ -198,10 +220,12 @@ class EvaluationResource extends Resource
             'edit' => Pages\EditEvaluation::route('/{record}/edit'),
         ];
     }
+
     public static function canCreate(): bool
     {
         return Auth::user()->role == 'juri';
     }
+
     public static function canEdit(Model $record): bool
     {
         return Auth::user()->role == 'juri';
