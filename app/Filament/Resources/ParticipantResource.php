@@ -278,10 +278,21 @@ class ParticipantResource extends Resource
     }
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['category', 'Competition']);
+        // 1. Hapus 'competition' dari 'with'
+        $query = parent::getEloquentQuery()->with(['category']);
+
+        // 2. Hitung jumlah evaluasi (untuk sembunyikan tombol & urutan pertama)
         $query->withCount('evaluations');
+
+        // 3. Hitung RATA-RATA dari 'final_score' di relasi 'evaluations'
+        //    Ini akan membuat properti virtual 'evaluations_avg_final_score'
         $query->withAvg('evaluations', 'final_score');
+
+        // 4. Urutkan:
+        //    a. Peserta yang belum dinilai (count=0) akan ada di paling atas.
         $query->orderBy('evaluations_count', 'asc');
+
+        //    b. Untuk peserta yang sudah dinilai, urutkan dari nilai tertinggi.
         $query->orderBy('evaluations_avg_final_score', 'desc');
 
         return $query;
