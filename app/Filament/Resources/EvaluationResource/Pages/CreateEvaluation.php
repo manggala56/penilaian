@@ -5,15 +5,15 @@ namespace App\Filament\Resources\EvaluationResource\Pages;
 use App\Filament\Resources\EvaluationResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
-use App\Models\Participant; // <-- TAMBAHKAN IMPORT INI
-use App\Models\Aspect;      // <-- TAMBAHKAN IMPORT INI
+use Illuminate\Support\Facades\Auth;
+use App\Models\Participant;
+use App\Models\Aspect;
 
 class CreateEvaluation extends CreateRecord
 {
     protected static string $resource = EvaluationResource::class;
 
-    // TAMBAHKAN SELURUH FUNGSI DI BAWAH INI
-    protected function mount(): void
+    public function mount(): void
     {
         parent::mount();
 
@@ -51,5 +51,47 @@ class CreateEvaluation extends CreateRecord
                 ]);
             }
         }
+    }
+
+    /**
+     * Pre-fill data scores berdasarkan category_id
+     */
+    protected function prefillScoresData($categoryId): void
+    {
+        if ($categoryId) {
+            $aspects = Aspect::where('category_id', $categoryId)
+                            ->orderBy('id')
+                            ->get();
+
+            // Buat data default untuk repeater
+            $scoresData = $aspects->map(function ($aspect) {
+                return [
+                    'aspect_id' => $aspect->id,
+                    'aspect_name' => $aspect->name,
+                    'score' => null,
+                    'comment' => '',
+                ];
+            })->toArray();
+
+            // Set data ke repeater 'scores' menggunakan form state
+            $currentState = $this->form->getState();
+            $currentState['scores'] = $scoresData;
+            $this->form->fill($currentState);
+        }
+    }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        // Pastikan user_id terisi
+        if (!isset($data['user_id'])) {
+            $data['user_id'] = Auth::id();
+        }
+
+        return $data;
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }
