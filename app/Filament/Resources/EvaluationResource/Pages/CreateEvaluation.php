@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Participant;
+use App\Models\Aspect;
 
 class CreateEvaluation extends CreateRecord
 {
@@ -30,7 +31,40 @@ class CreateEvaluation extends CreateRecord
                     'category_id' => $participant->category_id,
                     'evaluation_date' => now(),
                 ]);
+
+                // TAMBAHKAN: Pre-fill data scores untuk aspek penilaian
+                $this->prefillScoresData($participant->category_id);
             }
+        }
+    }
+
+    /**
+     * Pre-fill data scores berdasarkan category_id
+     */
+    protected function prefillScoresData($categoryId): void
+    {
+        if ($categoryId) {
+            $aspects = Aspect::where('category_id', $categoryId)
+                            ->orderBy('id')
+                            ->get();
+
+            // Buat data default untuk repeater
+            $scoresData = $aspects->map(function ($aspect) {
+                return [
+                    'aspect_id' => $aspect->id,
+                    'aspect_name' => $aspect->name,
+                    'score' => null,
+                    'comment' => '',
+                ];
+            })->toArray();
+
+            // Set data ke repeater 'scores'
+            $this->form->getState()['scores'] = $scoresData;
+
+            // Juga update form data
+            $this->form->fill([
+                'scores' => $scoresData
+            ]);
         }
     }
 
