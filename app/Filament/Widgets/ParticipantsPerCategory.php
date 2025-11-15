@@ -6,6 +6,7 @@ use App\Models\Category;
 use Filament\Widgets\ChartWidget;
 use Flowframe\Trend\Trend;
 use Flowframe\Trend\TrendValue;
+use Illuminate\Support\Facades\Auth;
 
 class ParticipantsPerCategory extends ChartWidget
 {
@@ -33,5 +34,9 @@ class ParticipantsPerCategory extends ChartWidget
     protected function getType(): string
     {
         return 'doughnut';
+    }
+    public static function canView(): bool
+    {
+        return Auth::user()->role !== 'juri';
     }
 }

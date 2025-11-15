@@ -175,6 +175,18 @@ class EvaluationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['participant.category', 'user']);
+            $user = Auth::user();
+            $query = parent::getEloquentQuery();
+            if ($user->role === 'juri') {
+                $juri = \App\Models\juri::where('user_id', $user->id)->first();
+
+                if ($juri) {
+                    $query->where('juri_id', $juri->id);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            }
+            return $query;
     }
 
     public static function getPages(): array

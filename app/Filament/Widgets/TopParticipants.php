@@ -7,11 +7,15 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class TopParticipants extends BaseWidget
 {
     protected int | string | array $columnSpan = 'full';
-
+    public static function canView(): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
     public function table(Table $table): Table
     {
         return $table
@@ -40,4 +44,5 @@ class TopParticipants extends BaseWidget
             ])
             ->heading('5 Besar Nilai Terbaik');
     }
+
 }

@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class AspectResource extends Resource
 {
@@ -24,7 +25,10 @@ class AspectResource extends Resource
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static ?int $navigationSort = 3;
-
+    public static function canViewAny(): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
     public static function form(Form $form): Form
     {
         return $form

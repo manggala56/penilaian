@@ -15,6 +15,8 @@ use App\Imports\ParticipantsImport;
 use App\Exports\ParticipantsTemplateExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
+use \Illuminate\Database\Eloquent\Model;
 // Hapus import Action yang lama
 // use Filament\Actions\Action;
 
@@ -96,6 +98,7 @@ class ParticipantResource extends Resource
                     ->label('Download Template')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('primary')
+                    ->visible(fn () => Auth::user()->role !== 'juri')
                     ->action(fn () => Excel::download(new ParticipantsTemplateExport, 'template_peserta.xlsx')),
 
                 Tables\Actions\Action::make('import')
@@ -141,7 +144,8 @@ class ParticipantResource extends Resource
                                 ->danger()
                                 ->send();
                         }
-                    }),
+                    })
+                    ->visible(fn () => Auth::user()->role !== 'juri'),
             ])
             ->columns([
                 Tables\Columns\TextColumn::make('category.name')
@@ -243,5 +247,24 @@ class ParticipantResource extends Resource
             'create' => Pages\CreateParticipant::route('/create'),
             'edit' => Pages\EditParticipant::route('/{record}/edit'),
         ];
+    }
+    public static function canCreate(): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return Auth::user()->role !== 'juri';
     }
 }

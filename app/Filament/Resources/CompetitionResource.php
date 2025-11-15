@@ -10,6 +10,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class CompetitionResource extends Resource
 {
@@ -21,6 +22,10 @@ class CompetitionResource extends Resource
 
     protected static ?string $navigationGroup = 'Manajemen Lomba';
     protected static ?int $navigationSort = 1;
+    public static function canViewAny(): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
     public static function form(Form $form): Form
     {
         return $form

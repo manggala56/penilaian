@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class SettingResource extends Resource
 {
@@ -21,7 +22,10 @@ class SettingResource extends Resource
     protected static ?string $navigationGroup = 'Manajemen Sistem';
 
     protected static ?int $navigationSort = 99;
-
+    public static function canViewAny(): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
     public static function form(Form $form): Form
     {
         return $form

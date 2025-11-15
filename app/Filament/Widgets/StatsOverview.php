@@ -8,6 +8,7 @@ use App\Models\Participant;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class StatsOverview extends BaseWidget
 {
@@ -35,5 +36,9 @@ class StatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('warning'),
         ];
+    }
+    public static function canView(): bool
+    {
+        return Auth::user()->role !== 'juri';
     }
 }
