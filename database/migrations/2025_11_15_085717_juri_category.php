@@ -8,10 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Hapus constraint foreign key dan unique constraint lama
+        // Hapus constraint foreign key terlebih dahulu
         Schema::table('juri', function (Blueprint $table) {
+            // Hapus foreign key constraint
             $table->dropForeign(['category_id']);
+
+            // Setelah foreign key dihapus, baru hapus unique constraint
             $table->dropUnique(['user_id', 'category_id']);
+
+            // Hapus kolom category_id
             $table->dropColumn('category_id');
         });
 
