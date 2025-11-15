@@ -43,7 +43,7 @@ class EvaluationResource extends Resource
                             ->preload()
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
-                            // Hook ini berjalan saat nilai DIPILIH (di halaman create)
+                            // afterStateUpdated tetap diperlukan jika pengguna MENGUBAH peserta di hal. create
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
                                 if ($state) {
                                     $participant = Participant::with('category')->find($state);
@@ -51,14 +51,12 @@ class EvaluationResource extends Resource
                                     $set('category_name', $participant?->category?->name ?? '');
                                     $set('category_id', $categoryId);
 
-                                    // Hanya pre-fill jika ini halaman 'create'
+                                    // Pastikan kita di halaman 'create'
                                     if ($livewire instanceof Pages\CreateEvaluation) {
                                         if ($categoryId) {
                                             $aspects = Aspect::where('category_id', $categoryId)
-                                                            ->orderBy('id') // Pastikan urutan konsisten
+                                                            ->orderBy('id')
                                                             ->get();
-
-                                            // Buat data default untuk repeater
                                             $scoresData = $aspects->map(function ($aspect) {
                                                 return [
                                                     'aspect_id' => $aspect->id,
@@ -67,11 +65,9 @@ class EvaluationResource extends Resource
                                                     'comment' => '',
                                                 ];
                                             })->toArray();
-
-                                            // Set data ke repeater 'scores'
                                             $set('scores', $scoresData);
                                         } else {
-                                            $set('scores', []); // Kosongkan jika kategori tidak ditemukan
+                                            $set('scores', []);
                                         }
                                     }
                                 } else {
@@ -81,14 +77,37 @@ class EvaluationResource extends Resource
                                     $set('scores', []);
                                 }
                             })
+                            // MODIFIKASI HOOK INI
                             ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
-                                if ($context === 'edit' && $state) {
+                                if ($state) {
                                     $participant = Participant::with('category')->find($state);
+                                    $categoryId = $participant?->category_id;
+
+                                    // Selalu set nama kategori dan ID
                                     $set('category_name', $participant?->category?->name ?? '');
-                                    $set('category_id', $participant?->category_id ?? null);
+                                    $set('category_id', $categoryId);
+
+                                    // TAMBAHKAN BLOK INI UNTUK MENANGANI KONTEKS 'CREATE' SAAT LOAD
+                                    if ($context === 'create' && $categoryId) {
+                                        $aspects = Aspect::where('category_id', $categoryId)
+                                                        ->orderBy('id')
+                                                        ->get();
+
+                                        $scoresData = $aspects->map(function ($aspect) {
+                                            return [
+                                                'aspect_id' => $aspect->id,
+                                                'aspect_name' => $aspect->name, // aspect_name di repeater akan di-hydrate dari sini
+                                                'score' => null,
+                                                'comment' => '',
+                                            ];
+                                        })->toArray();
+
+                                        $set('scores', $scoresData);
+                                    }
                                 }
                             }),
-                        Forms\Components\Hidden::make('category_id'),
+
+                            Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
                             ->label('Kategori')
                             ->disabled()

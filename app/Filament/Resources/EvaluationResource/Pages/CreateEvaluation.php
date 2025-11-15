@@ -17,7 +17,6 @@ class CreateEvaluation extends CreateRecord
     {
         parent::mount();
 
-        // Handle participant_id dari URL parameter
         $participantId = request()->query('participant_id');
 
         if ($participantId) {
