@@ -8,11 +8,12 @@ use Filament\Resources\Pages\CreateRecord;
 use App\Models\Participant;
 use App\Models\Aspect;
 use App\Models\EvaluationScore;
+use Illuminate\Support\Facades\Auth;
+
 class CreateEvaluation extends CreateRecord
 {
     protected static string $resource = EvaluationResource::class;
 
-    // Fungsi mount() ini untuk MENGISI form saat load DARI URL
     public function mount(): void
     {
         parent::mount();
@@ -47,6 +48,7 @@ class CreateEvaluation extends CreateRecord
                     'category_name' => $participant->category?->name ?? '',
                     'category_id' => $categoryId,
                     'scores' => $scoresData,
+                    'user_id' => Auth::id(), // <--- 2. TAMBAHKAN BARIS INI
                 ]);
             }
         }
