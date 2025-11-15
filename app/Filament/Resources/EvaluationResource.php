@@ -44,54 +44,28 @@ class EvaluationResource extends Resource
                             // Nonaktifkan pilihan peserta di halaman edit
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
-                            // Hook ini berjalan saat nilai DIPILIH (di halaman create)
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
-                                if ($state) {
-                                    $participant = Participant::with('category')->find($state);
-                                    $categoryId = $participant?->category_id;
-                                    $set('category_name', $participant?->category?->name ?? '');
-                                    $set('category_id', $categoryId);
-
-                                    // Hanya pre-fill jika ini halaman 'create'
-                                    if ($livewire instanceof Pages\CreateEvaluation) {
-                                        if ($categoryId) {
-                                            $aspects = Aspect::where('category_id', $categoryId)
-                                                            ->orderBy('id') // Pastikan urutan konsisten
-                                                            ->get();
-
-                                            // Buat data default untuk repeater
-                                            $scoresData = $aspects->map(function ($aspect) {
-                                                return [
-                                                    'aspect_id' => $aspect->id,
-                                                    'aspect_name' => $aspect->name,
-                                                    'score' => null,
-                                                    'comment' => '',
-                                                ];
-                                            })->toArray();
-
-                                            // Set data ke repeater 'scores'
-                                            $set('scores', $scoresData);
-                                        } else {
-                                            $set('scores', []); // Kosongkan jika kategori tidak ditemukan
-                                        }
-                                    }
-                                } else {
-                                    // Kosongkan jika tidak ada peserta
-                                    $set('category_name', '');
-                                    $set('category_id', null);
-                                    $set('scores', []);
+                                // Cek $livewire untuk pastikan ini halaman Create
+                                if ($livewire instanceof Pages\CreateEvaluation) {
+                                    static::fillScoresByParticipant($state, $set, $livewire);
                                 }
                             })
-                            // --- AWAL PERBAIKAN ---
-                            // Hook ini berjalan saat form DIMUAT (di halaman edit)
-                            ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
-                                if ($context === 'edit' && $state) {
-                                    $participant = Participant::with('category')->find($state);
-                                    $set('category_name', $participant?->category?->name ?? '');
-                                    $set('category_id', $participant?->category_id ?? null);
+                            // Hook ini berjalan saat form DIMUAT
+                            ->afterStateHydrated(function ($state, Forms\Set $set, $livewire) {
+                                // $state adalah participant_id yang sudah terisi saat form load
+                                if (!$state) {
+                                    return; // Abaikan jika tidak ada participant_id (create murni)
+                                }
+
+                                $participant = Participant::with('category')->find($state);
+                                $categoryId = $participant?->category_id;
+                                $set('category_name', $participant?->category?->name ?? '');
+                                $set('category_id', $categoryId);
+
+                                if ($livewire instanceof Pages\CreateEvaluation) {
+                                    static::fillScoresByParticipant($state, $set, $livewire);
                                 }
                             }),
-                            // --- AKHIR PERBAIKAN ---
                         Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
                             ->label('Kategori')
@@ -167,7 +141,49 @@ class EvaluationResource extends Resource
                     ]),
             ]);
     }
+    protected static function fillScoresByParticipant($state, Forms\Set $set, $livewire): void
+    {
+        // $state adalah participant_id
+        if ($state) {
+            $participant = Participant::with('category')->find($state);
+            $categoryId = $participant?->category_id;
 
+            // Set info kategori (selalu diperlukan)
+            $set('category_name', $participant?->category?->name ?? '');
+            $set('category_id', $categoryId);
+
+            if ($categoryId) {
+                // Cek apakah scores sudah terisi (misal: karena gagal validasi)
+                // Kita gunakan $livewire->data untuk mendapat state mentah
+                $existingScores = $livewire->data['scores'] ?? [];
+
+                // Hanya isi jika repeater kosong (load pertama kali)
+                if (empty($existingScores)) {
+                    $aspects = Aspect::where('category_id', $categoryId)
+                                    ->orderBy('id')
+                                    ->get();
+
+                    $scoresData = $aspects->map(function ($aspect) {
+                        return [
+                            'aspect_id' => $aspect->id,
+                            'aspect_name' => $aspect->name, // Kita isi namanya
+                            'score' => null,
+                            'comment' => '',
+                        ];
+                    })->toArray();
+
+                    $set('scores', $scoresData);
+                }
+            } else {
+                $set('scores', []); // Kosongkan jika kategori tidak ditemukan
+            }
+        } else {
+            // Kosongkan jika tidak ada peserta
+            $set('category_name', '');
+            $set('category_id', null);
+            $set('scores', []);
+        }
+    }
     protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
     {
         $scores = $get('scores');
