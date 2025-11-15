@@ -20,9 +20,7 @@ class EvaluationResource extends Resource
     protected static ?string $model = Evaluation::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-
     protected static ?string $navigationLabel = 'Penilaian';
-
     protected static ?string $navigationGroup = 'Manajemen Penilaian';
     protected static ?int $navigationSort = 4;
 
@@ -41,10 +39,9 @@ class EvaluationResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            // 'disabled' saat 'edit' sudah benar
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
-                            // Hook 'afterStateUpdated' ini PENTING untuk perubahan manual
+                            // Hook ini (afterStateUpdated) sudah benar untuk handle "pilih manual"
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
                                 if ($state) {
                                     $participant = Participant::with('category')->find($state);
@@ -52,14 +49,11 @@ class EvaluationResource extends Resource
                                     $set('category_name', $participant?->category?->name ?? '');
                                     $set('category_id', $categoryId);
 
-                                    // Hanya pre-fill jika ini halaman 'create'
                                     if ($livewire instanceof Pages\CreateEvaluation) {
                                         if ($categoryId) {
                                             $aspects = Aspect::where('category_id', $categoryId)
-                                                            ->orderBy('id') // Pastikan urutan konsisten
+                                                            ->orderBy('id')
                                                             ->get();
-
-                                            // Buat data default untuk repeater
                                             $scoresData = $aspects->map(function ($aspect) {
                                                 return [
                                                     'aspect_id' => $aspect->id,
@@ -68,21 +62,18 @@ class EvaluationResource extends Resource
                                                     'comment' => '',
                                                 ];
                                             })->toArray();
-
-                                            // Set data ke repeater 'scores'
                                             $set('scores', $scoresData);
                                         } else {
-                                            $set('scores', []); // Kosongkan jika kategori tidak ditemukan
+                                            $set('scores', []);
                                         }
                                     }
                                 } else {
-                                    // Kosongkan jika tidak ada peserta
                                     $set('category_name', '');
                                     $set('category_id', null);
                                     $set('scores', []);
                                 }
                             })
-                            // Hook 'afterStateHydrated' ini PENTING untuk halaman 'edit'
+                            // Hook ini (afterStateHydrated) sudah benar untuk handle halaman "Edit"
                             ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
                                 if ($context === 'edit' && $state) {
                                     $participant = Participant::with('category')->find($state);
@@ -106,58 +97,56 @@ class EvaluationResource extends Resource
 
                 Forms\Components\Section::make('Detail Penilaian')
                     ->schema([
+                        // --- PERUBAHAN UTAMA ADA DI SINI ---
                         Forms\Components\Repeater::make('scores')
-    ->relationship('scores')
-    ->schema([
-        Forms\Components\Hidden::make('aspect_id')
-            ->required(),
-        Forms\Components\TextInput::make('aspect_name')
-            ->label('Aspek')
-            ->disabled()
-            ->dehydrated(false)
-            ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get, $state) {
-                // Perbaiki fungsi ini untuk lebih reliable
-                $aspectId = $get('aspect_id');
-                if ($aspectId) {
-                    $aspect = Aspect::find($aspectId);
-                    $set('aspect_name', $aspect?->name ?? '');
-                }
-            }),
-        Forms\Components\TextInput::make('score')
-            ->label('Nilai')
-            ->numeric()
-            ->minValue(0)
-            ->maxValue(function (Forms\Get $get) {
-                $aspectId = $get('aspect_id');
-                if (!$aspectId) {
-                    return 100;
-                }
+                            // ->relationship('scores') // <-- HAPUS (INI BIANG MASALAHNYA)
+                            ->schema([
+                                Forms\Components\Hidden::make('aspect_id')
+                                    ->required(),
+                                Forms\Components\TextInput::make('aspect_name')
+                                    ->label('Aspek')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get, $state) {
+                                        $aspectId = $get('aspect_id');
+                                        if ($aspectId) {
+                                            $aspect = Aspect::find($aspectId);
+                                            $set('aspect_name', $aspect?->name ?? '');
+                                        }
+                                    }),
+                                Forms\Components\TextInput::make('score')
+                                    ->label('Nilai')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(function (Forms\Get $get) {
+                                        $aspectId = $get('aspect_id');
+                                        if (!$aspectId) { return 100; }
+                                        $aspect = Aspect::find($aspectId);
+                                        return $aspect?->max_score ?? 100;
+                                    })
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                        static::updateFinalScore($set, $get);
+                                    }),
+                                Forms\Components\Textarea::make('comment')
+                                    ->label('Komentar')
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(2)
+                            ->required()
+                            ->minItems(1)
+                            ->reorderable(false)
+                            ->addable(false)
+                            ->deletable(false)
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+                                static::updateFinalScore($set, $get);
+                            })
+                            // ->hidden() Anda sudah benar
+                            ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id'))
+                            ->dehydrated(false), // <-- TAMBAHKAN INI
 
-                $aspect = Aspect::find($aspectId);
-                return $aspect?->max_score ?? 100;
-            })
-            ->required()
-            ->live()
-            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-                static::updateFinalScore($set, $get);
-            }),
-        Forms\Components\Textarea::make('comment')
-            ->label('Komentar')
-            ->columnSpanFull(),
-    ])
-    ->columns(2)
-    ->required()
-    ->minItems(1)
-    ->reorderable(false)
-    ->addable(false)
-    // ->deletable(false) // Kita mungkin perlu membiarkan ini, tapi mount() akan mengisinya
-    ->deletable(false)
-    ->live()
-    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-        static::updateFinalScore($set, $get);
-    })
-    // Kondisi hidden ini sudah benar
-    ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id')),
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
                             ->numeric()
@@ -167,6 +156,7 @@ class EvaluationResource extends Resource
             ]);
     }
 
+    // Fungsi updateFinalScore() Anda sudah benar, tidak perlu diubah
     protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
     {
         $scores = $get('scores');
@@ -178,7 +168,6 @@ class EvaluationResource extends Resource
                     $aspect = Aspect::find($score['aspect_id']);
                     if ($aspect) {
                         $weight = $aspect->weight / 100;
-                        // Pastikan max_score tidak nol untuk menghindari division by zero
                         $maxScore = $aspect->max_score > 0 ? $aspect->max_score : 100;
                         $normalizedScore = ($score['score'] / $maxScore) * 100;
                         $totalScore += $normalizedScore * $weight;
@@ -189,6 +178,8 @@ class EvaluationResource extends Resource
 
         $set('final_score', round($totalScore, 2));
     }
+
+    // Fungsi table() dan sisanya biarkan sama seperti aslinya
 
     public static function table(Table $table): Table
     {
@@ -238,7 +229,6 @@ class EvaluationResource extends Resource
 
         $user = Auth::user();
         if ($user->role === 'juri') {
-            // Jika menggunakan relasi langsung ke user
             $query->where('user_id', $user->id);
         }
 
