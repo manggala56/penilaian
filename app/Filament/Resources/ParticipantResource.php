@@ -18,7 +18,6 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use \Illuminate\Database\Eloquent\Model;
 use Filament\Tables\Grouping\Group;
-use Illuminate\Database\Eloquent\Builder;
 
 class ParticipantResource extends Resource
 {
@@ -278,10 +277,11 @@ class ParticipantResource extends Resource
     }
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['category', 'competition']);
+        $query = parent::getEloquentQuery()->with(['category', 'Competition']);
         $query->withCount('evaluations');
+        $query->withAvg('evaluations', 'final_score');
         $query->orderBy('evaluations_count', 'asc');
-        $query->orderBy('name', 'asc');
+        $query->orderBy('evaluations_avg_final_score', 'desc');
 
         return $query;
     }
