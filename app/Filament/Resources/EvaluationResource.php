@@ -35,15 +35,16 @@ class EvaluationResource extends Resource
                         Forms\Components\Hidden::make('user_id')
                             ->default(Auth::id())
                             ->required(),
-                            Forms\Components\Select::make('participant_id')
+                        Forms\Components\Select::make('participant_id')
                             ->label('Peserta')
                             ->relationship('participant', 'name')
                             ->required()
                             ->searchable()
                             ->preload()
+                            // 'disabled' saat 'edit' sudah benar
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
-                            // Hook ini berjalan saat nilai DIPILIH (di halaman create)
+                            // Hook 'afterStateUpdated' ini PENTING untuk perubahan manual
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
                                 if ($state) {
                                     $participant = Participant::with('category')->find($state);
@@ -81,40 +82,15 @@ class EvaluationResource extends Resource
                                     $set('scores', []);
                                 }
                             })
-                            // Hook ini berjalan saat form di-LOAD (Hydrated)
+                            // Hook 'afterStateHydrated' ini PENTING untuk halaman 'edit'
                             ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
-                                // $state adalah participant_id dari URL
-                                if ($state) {
+                                if ($context === 'edit' && $state) {
                                     $participant = Participant::with('category')->find($state);
-                                    $categoryId = $participant?->category_id;
-
-                                    // Selalu set nama kategori dan ID
                                     $set('category_name', $participant?->category?->name ?? '');
-                                    $set('category_id', $categoryId);
-
-                                    // --- PERBAIKAN: TAMBAHKAN BLOK INI ---
-                                    // Jalankan logika pengisian repeater JIKA kita di halaman 'create'
-                                    if ($context === 'create' && $categoryId) {
-                                        $aspects = Aspect::where('category_id', $categoryId)
-                                                        ->orderBy('id')
-                                                        ->get();
-
-                                        $scoresData = $aspects->map(function ($aspect) {
-                                            return [
-                                                'aspect_id' => $aspect->id,
-                                                'aspect_name' => $aspect->name,
-                                                'score' => null,
-                                                'comment' => '',
-                                            ];
-                                        })->toArray();
-
-                                        // Set data ke repeater 'scores'
-                                        $set('scores', $scoresData);
-                                    }
-                                    // --- AKHIR PERBAIKAN ---
+                                    $set('category_id', $participant?->category_id ?? null);
                                 }
                             }),
-                            Forms\Components\Hidden::make('category_id'),
+                        Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
                             ->label('Kategori')
                             ->disabled()
@@ -174,12 +150,13 @@ class EvaluationResource extends Resource
     ->minItems(1)
     ->reorderable(false)
     ->addable(false)
+    // ->deletable(false) // Kita mungkin perlu membiarkan ini, tapi mount() akan mengisinya
     ->deletable(false)
     ->live()
     ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
         static::updateFinalScore($set, $get);
     })
-    // PERBAIKI: Condition untuk hidden
+    // Kondisi hidden ini sudah benar
     ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id')),
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
