@@ -2,13 +2,12 @@
 
 namespace App\Filament\Resources\CompetitionResource\RelationManagers;
 
+use App\Models\CompetitionStage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class StagesRelationManager extends RelationManager
 {
@@ -28,10 +27,27 @@ class StagesRelationManager extends RelationManager
                     ->required()
                     ->maxLength(255)
                     ->columnSpanFull(),
-                Forms\Components\NumberInput::make('qualifying_count')
+
+                Forms\Components\Textarea::make('description')
+                    ->label('Deskripsi')
+                    ->columnSpanFull()
+                    ->nullable(),
+
+                Forms\Components\TextInput::make('qualifying_count')
                     ->label('Jumlah Lolos / Juara')
                     ->helperText('Jumlah peserta yang lolos dari tahap ini, atau jumlah juara jika ini tahap final.')
-                    ->required(),
+                    ->required()
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(1),
+
+                Forms\Components\TextInput::make('stage_order')
+                    ->label('Urutan Tahap')
+                    ->helperText('Urutan tahapan (1 untuk tahap pertama, 2 untuk tahap kedua, dst)')
+                    ->required()
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(1),
 
             ]);
     }
@@ -40,16 +56,32 @@ class StagesRelationManager extends RelationManager
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('stage_order')
+                    ->label('Urutan')
+                    ->sortable()
+                    ->alignCenter(),
+
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nama Tahap'),
+                    ->label('Nama Tahap')
+                    ->searchable()
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('qualifying_count')
-                    ->label('Jumlah Lolos/Juara'),
+                    ->label('Jumlah Lolos/Juara')
+                    ->alignCenter()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('description')
+                    ->label('Deskripsi')
+                    ->limit(50)
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\CreateAction::make()
+                    ->label('Tambah Tahap'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -60,9 +92,8 @@ class StagesRelationManager extends RelationManager
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            // KUNCI UTAMA: Aktifkan pengurutan
             ->reorderable('stage_order')
-            ->defaultSort('stage_order', 'asc') // Selalu urutkan
-            ->paginated(false); // Matikan paginasi agar semua 3 tahap terlihat
+            ->defaultSort('stage_order', 'asc')
+            ->paginated(false);
     }
 }
