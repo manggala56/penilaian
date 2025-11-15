@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use \Illuminate\Database\Eloquent\Model;
 use Filament\Tables\Grouping\Group;
+use Illuminate\Database\Eloquent\Builder;
 
 class ParticipantResource extends Resource
 {
