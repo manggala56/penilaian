@@ -23,6 +23,7 @@ class JuriResource extends Resource
     protected static ?string $navigationGroup = 'Manajemen Penilaian';
 
     protected static ?string $recordTitleAttribute = 'user.name';
+    protected static ?int $navigationSort = 5 ;
 
     public static function form(Form $form): Form
     {
@@ -74,10 +75,11 @@ class JuriResource extends Resource
                             ->helperText('Jika diaktifkan, juri ini dapat menilai peserta dari semua kategori')
                             ->columnSpanFull(),
 
-                        // Category selection (hanya untuk non-universal)
-                        Forms\Components\Select::make('category_id')
-                            ->label('Kategori Khusus')
-                            ->relationship('category', 'name')
+                        // Multi category selection (hanya untuk non-universal)
+                        Forms\Components\Select::make('category_ids')
+                            ->label('Kategori yang Dinilai')
+                            ->relationship('categories', 'name')
+                            ->multiple()
                             ->searchable()
                             ->preload()
                             ->required(fn (Forms\Get $get): bool =>
@@ -92,7 +94,7 @@ class JuriResource extends Resource
                             ->helperText(fn (Forms\Get $get): string =>
                                 $get('can_judge_all_categories')
                                     ? ''
-                                    : 'Pilih kategori khusus yang akan dinilai oleh juri ini'
+                                    : 'Pilih kategori yang akan dinilai oleh juri ini (bisa multiple)'
                             ),
 
                         Forms\Components\Textarea::make('expertise')
@@ -126,6 +128,11 @@ class JuriResource extends Resource
 
                 Tables\Columns\TextColumn::make('category_name')
                     ->label('Kategori')
+                    ->description(fn ($record): string =>
+                        $record->can_judge_all_categories
+                            ? ''
+                            : '(' . $record->categories->count() . ' kategori)'
+                    )
                     ->searchable()
                     ->sortable(),
 
@@ -160,9 +167,12 @@ class JuriResource extends Resource
                     ->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('category')
-                    ->relationship('category', 'name')
-                    ->label('Kategori'),
+                // Filter by categories (many-to-many)
+                Tables\Filters\SelectFilter::make('categories')
+                    ->relationship('categories', 'name')
+                    ->label('Kategori')
+                    ->multiple()
+                    ->preload(),
 
                 Tables\Filters\SelectFilter::make('can_judge_all_categories')
                     ->label('Tipe Juri')
@@ -197,7 +207,7 @@ class JuriResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['user', 'category', 'evaluations'])
+            ->with(['user', 'categories', 'evaluations'])
             ->withCount(['evaluations as current_evaluations_count'])
             ->orderBy('created_at', 'desc');
     }

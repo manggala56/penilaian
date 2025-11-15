@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class AspectResource extends Resource
 {
@@ -22,6 +23,8 @@ class AspectResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    protected static ?int $navigationSort = 3;
+
     public static function form(Form $form): Form
     {
         return $form
@@ -31,7 +34,15 @@ class AspectResource extends Resource
                         Forms\Components\Select::make('category_id')
                             ->label('Kategori')
                             ->relationship('category', 'name')
-                            ->required(),
+                            ->required()
+                            ->live() // Tambahkan live() untuk real-time update
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                // Otomatis set urutan ketika kategori dipilih
+                                if ($state) {
+                                    $nextOrder = Aspect::where('category_id', $state)->count() + 1;
+                                    $set('order', $nextOrder);
+                                }
+                            }),
                         Forms\Components\TextInput::make('name')
                             ->label('Nama Aspek')
                             ->required()
@@ -55,8 +66,24 @@ class AspectResource extends Resource
                         Forms\Components\TextInput::make('order')
                             ->label('Urutan')
                             ->numeric()
-                            ->minValue(0)
-                            ->default(0),
+                            ->minValue(1)
+                            ->default(function (Forms\Get $get) {
+                                // Default value berdasarkan count aspek dalam kategori yang dipilih
+                                $categoryId = $get('category_id');
+                                if ($categoryId) {
+                                    return Aspect::where('category_id', $categoryId)->count() + 1;
+                                }
+                                return 1;
+                            })
+                            ->hint(function (Forms\Get $get) {
+                                $categoryId = $get('category_id');
+                                if ($categoryId) {
+                                    $currentCount = Aspect::where('category_id', $categoryId)->count();
+                                    return "Saat ini ada {$currentCount} aspek dalam kategori ini";
+                                }
+                                return "Pilih kategori terlebih dahulu";
+                            })
+                            ->hintColor('primary'),
                     ])->columns(2),
             ]);
     }
@@ -84,13 +111,60 @@ class AspectResource extends Resource
                 Tables\Columns\TextColumn::make('order')
                     ->label('Urutan')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->formatStateUsing(function ($record) {
+                        return "{$record->order} (dari " .
+                               Aspect::where('category_id', $record->category_id)->count() .
+                               " aspek)";
+                    }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
                     ->relationship('category', 'name'),
             ])
             ->actions([
+                Tables\Actions\Action::make('moveUp')
+                    ->label('Naik')
+                    ->icon('heroicon-o-arrow-up')
+                    ->action(function (Aspect $record) {
+                        $previous = Aspect::where('category_id', $record->category_id)
+                            ->where('order', '<', $record->order)
+                            ->orderBy('order', 'desc')
+                            ->first();
+
+                        if ($previous) {
+                            $currentOrder = $record->order;
+                            $record->order = $previous->order;
+                            $previous->order = $currentOrder;
+
+                            $record->save();
+                            $previous->save();
+                        }
+                    })
+                    ->visible(fn (Aspect $record) => $record->order > 1),
+
+                Tables\Actions\Action::make('moveDown')
+                    ->label('Turun')
+                    ->icon('heroicon-o-arrow-down')
+                    ->action(function (Aspect $record) {
+                        $next = Aspect::where('category_id', $record->category_id)
+                            ->where('order', '>', $record->order)
+                            ->orderBy('order', 'asc')
+                            ->first();
+
+                        if ($next) {
+                            $currentOrder = $record->order;
+                            $record->order = $next->order;
+                            $next->order = $currentOrder;
+
+                            $record->save();
+                            $next->save();
+                        }
+                    })
+                    ->visible(fn (Aspect $record) =>
+                        $record->order < Aspect::where('category_id', $record->category_id)->count()
+                    ),
+
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -98,7 +172,9 @@ class AspectResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('category_id')
+            ->defaultSort('order');
     }
 
     public static function getPages(): array

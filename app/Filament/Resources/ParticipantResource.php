@@ -27,6 +27,8 @@ class ParticipantResource extends Resource
     protected static ?string $navigationLabel = 'Peserta';
 
     protected static ?string $navigationGroup = 'Manajemen Peserta';
+    protected static ?int $navigationSort = 6 ;
+
 
     public static function form(Form $form): Form
     {

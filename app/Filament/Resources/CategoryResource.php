@@ -21,6 +21,7 @@ class CategoryResource extends Resource
     protected static ?string $navigationGroup = 'Manajemen Lomba';
 
     protected static ?string $recordTitleAttribute = 'name';
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

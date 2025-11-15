@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Juri extends Model
@@ -12,7 +13,6 @@ class Juri extends Model
 
     protected $fillable = [
         'user_id',
-        'category_id',
         'is_active',
         'expertise',
         'max_evaluations',
@@ -31,10 +31,13 @@ class Juri extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function category(): BelongsTo
+    // Many-to-many relationship dengan categories
+    public function categories(): BelongsToMany
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsToMany(Category::class, 'juri_category')
+                    ->withTimestamps();
     }
+
 
     public function evaluations(): HasManyThrough
     {
@@ -81,7 +84,8 @@ class Juri extends Model
     // Method untuk mengecek apakah juri bisa menilai kategori tertentu
     public function canJudgeCategory($categoryId): bool
     {
-        return $this->can_judge_all_categories || $this->category_id == $categoryId;
+        return $this->can_judge_all_categories ||
+            $this->categories()->where('categories.id', $categoryId)->exists();
     }
 
     // Method untuk mendapatkan kategori yang bisa dinilai
@@ -91,17 +95,31 @@ class Juri extends Model
             return Category::all();
         }
 
-        return collect([$this->category]);
+        return $this->categories;
     }
 
-    // Accessor untuk menampilkan nama kategori (termasuk "Semua Kategori")
+    // Accessor untuk menampilkan nama kategori (termasuk "Semua Kategori" atau daftar kategori)
     public function getCategoryNameAttribute()
     {
         if ($this->can_judge_all_categories) {
             return 'Semua Kategori';
         }
 
-        return $this->category ? $this->category->name : 'Tidak ada kategori';
+        if ($this->relationLoaded('categories') && $this->categories->isNotEmpty()) {
+            return $this->categories->pluck('name')->join(', ');
+        }
+
+        return 'Tidak ada kategori';
+    }
+
+    // Method untuk sync categories
+    public function syncCategories($categoryIds)
+    {
+        if (!$this->can_judge_all_categories) {
+            return $this->categories()->sync($categoryIds);
+        }
+
+        return null;
     }
 
     // Validasi sebelum save
@@ -110,10 +128,14 @@ class Juri extends Model
         parent::boot();
 
         static::saving(function ($juri) {
-            // Jika bisa menilai semua kategori, set category_id menjadi null
+            // Jika bisa menilai semua kategori, hapus semua kategori spesifik
             if ($juri->can_judge_all_categories) {
-                $juri->category_id = null;
+                $juri->categories()->detach();
             }
+        });
+
+        static::deleting(function ($juri) {
+            $juri->categories()->detach();
         });
     }
 }

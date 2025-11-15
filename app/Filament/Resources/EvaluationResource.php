@@ -22,6 +22,7 @@ class EvaluationResource extends Resource
     protected static ?string $navigationLabel = 'Penilaian';
 
     protected static ?string $navigationGroup = 'Manajemen Penilaian';
+    protected static ?int $navigationSort = 4 ;
 
     public static function form(Form $form): Form
     {

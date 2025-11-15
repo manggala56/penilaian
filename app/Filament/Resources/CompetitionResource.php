@@ -20,7 +20,7 @@ class CompetitionResource extends Resource
     protected static ?string $navigationLabel = 'Lomba';
 
     protected static ?string $navigationGroup = 'Manajemen Lomba';
-
+    protected static ?int $navigationSort = 1;
     public static function form(Form $form): Form
     {
         return $form
