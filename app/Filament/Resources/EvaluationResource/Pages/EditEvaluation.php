@@ -5,7 +5,8 @@ namespace App\Filament\Resources\EvaluationResource\Pages;
 use App\Filament\Resources\EvaluationResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
-use App\Models\EvaluationScore; // <-- TAMBAHKAN IMPORT INI
+use App\Models\EvaluationScore; // <-- 1. TAMBAHKAN INI
+use App\Models\Aspect;          // <-- 2. TAMBAHKAN INI
 
 class EditEvaluation extends EditRecord
 {
@@ -18,46 +19,47 @@ class EditEvaluation extends EditRecord
         ];
     }
 
-    // Fungsi ini untuk MEMUAT data repeater saat halaman Edit dibuka
-    protected function afterFill(): void
+    // 3. TAMBAHKAN FUNGSI INI UNTUK ME-LOAD DATA
+    protected function mutateFormDataBeforeFill(array $data): array
     {
-        $evaluation = $this->getRecord();
+        // 1. Ambil data scores yang sudah ada dari database
+        $evaluationScores = EvaluationScore::where('evaluation_id', $this->getRecord()->id)
+                                            ->with('aspect') // Load relasi aspect
+                                            ->orderBy('id')  // Urutkan
+                                            ->get();
 
-        // Pastikan relasi 'scores' di Model/Evaluation Anda ada
-        $scores = $evaluation->scores()->with('aspect')->get();
-
-        // Format data untuk repeater
-        $scoresData = $scores->map(function ($score) {
+        // 2. Format data tersebut agar sesuai dengan field repeater
+        $scoresData = $evaluationScores->map(function ($score) {
             return [
-                'aspect_id' => $score->aspect_id,
-                'aspect_name' => $score->aspect?->name ?? '',
-                'score' => $score->score,
-                'comment' => $score->comment,
+                'aspect_id'   => $score->aspect_id,
+                'aspect_name' => $score->aspect?->name ?? '', // Ambil nama dari relasi
+                'score'       => $score->score,
+                'comment'     => $score->comment,
             ];
         })->toArray();
 
-        // Isi field 'scores' di form
-        $this->form->fill([
-            'scores' => $scoresData,
-        ]);
+        // 3. Masukkan data scores ke dalam array $data form
+        $data['scores'] = $scoresData;
+
+        return $data;
     }
 
-    // Fungsi ini untuk MENYIMPAN data repeater saat di-edit
+    // 4. TAMBAHKAN FUNGSI INI UNTUK MENYIMPAN DATA
     protected function afterSave(): void
     {
         $evaluation = $this->getRecord();
         $scoresData = $this->form->getState()['scores'] ?? [];
 
-        // Hapus data lama
-        $evaluation->scores()->delete();
+        // 1. Hapus data score yang lama (cara paling aman)
+        EvaluationScore::where('evaluation_id', $evaluation->id)->delete();
 
-        // Buat data baru dari form
+        // 2. Buat ulang data score berdasarkan data repeater yang baru
         foreach ($scoresData as $score) {
             EvaluationScore::create([
                 'evaluation_id' => $evaluation->id,
-                'aspect_id' => $score['aspect_id'],
-                'score' => $score['score'],
-                'comment' => $score['comment'] ?? '',
+                'aspect_id'     => $score['aspect_id'],
+                'score'         => $score['score'],
+                'comment'       => $score['comment'] ?? '',
             ]);
         }
     }
