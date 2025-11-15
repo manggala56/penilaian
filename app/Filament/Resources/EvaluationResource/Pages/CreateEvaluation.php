@@ -18,7 +18,6 @@ class CreateEvaluation extends CreateRecord
     {
         parent::mount();
 
-        // 1. Ambil participant_id dari URL
         $participantId = request()->query('participant_id');
 
         if ($participantId) {
@@ -26,13 +25,9 @@ class CreateEvaluation extends CreateRecord
 
             if ($participant && $participant->category_id) {
                 $categoryId = $participant->category_id;
-
-                // 2. Cari aspek
-                $aspects = Aspect::where('category_id', $categoryId)
-                                 ->orderBy('id')
-                                 ->get();
-
-                // 3. Siapkan data untuk repeater
+                    $aspects = Aspect::where('category_id', $categoryId)
+                                    ->orderBy('id')
+                                    ->get();
                 $scoresData = $aspects->map(function ($aspect) {
                     return [
                         'aspect_id' => $aspect->id,
@@ -41,27 +36,22 @@ class CreateEvaluation extends CreateRecord
                         'comment' => '',
                     ];
                 })->toArray();
-
-                // 4. Isi form (INI AKAN BEKERJA karena repeater tidak pakai ->relationship)
                 $this->form->fill([
                     'participant_id' => $participant->id,
                     'category_name' => $participant->category?->name ?? '',
                     'category_id' => $categoryId,
                     'scores' => $scoresData,
-                    'user_id' => Auth::id(), // <--- 2. TAMBAHKAN BARIS INI
+                    'user_id' => Auth::id(),
                 ]);
             }
         }
     }
 
-    // Fungsi ini untuk MENYIMPAN data repeater secara manual
     protected function afterCreate(): void
     {
         $evaluation = $this->getRecord();
         $scoresData = $this->form->getState()['scores'] ?? [];
-
         foreach ($scoresData as $score) {
-            // Pastikan model EvaluationScore Anda ada dan namespace-nya benar
             EvaluationScore::create([
                 'evaluation_id' => $evaluation->id,
                 'aspect_id' => $score['aspect_id'],
