@@ -41,17 +41,44 @@ class EvaluationResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->default(fn ($livewire) => $livewire->data['participant_id'] ?? null)
-                            ->disabled(fn ($livewire) => isset($livewire->data['participant_id']))
+                            // Nonaktifkan pilihan peserta di halaman edit
+                            ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
-                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                            ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
                                 if ($state) {
                                     $participant = Participant::with('category')->find($state);
+                                    $categoryId = $participant?->category_id;
                                     $set('category_name', $participant?->category?->name ?? '');
-                                    $set('category_id', $participant?->category_id ?? null);
+                                    $set('category_id', $categoryId);
+
+                                    // Hanya pre-fill jika ini halaman 'create'
+                                    if ($livewire instanceof Pages\CreateEvaluation) {
+                                        if ($categoryId) {
+                                            $aspects = Aspect::where('category_id', $categoryId)
+                                                            ->orderBy('id') // Pastikan urutan konsisten
+                                                            ->get();
+
+                                            // Buat data default untuk repeater
+                                            $scoresData = $aspects->map(function ($aspect) {
+                                                return [
+                                                    'aspect_id' => $aspect->id,
+                                                    'aspect_name' => $aspect->name,
+                                                    'score' => null,
+                                                    'comment' => '',
+                                                ];
+                                            })->toArray();
+
+                                            // Set data ke repeater 'scores'
+                                            $set('scores', $scoresData);
+                                        } else {
+                                            $set('scores', []); // Kosongkan jika kategori tidak ditemukan
+                                        }
+                                    }
                                 } else {
+                                    // Kosongkan jika tidak ada peserta
                                     $set('category_name', '');
                                     $set('category_id', null);
+                                    $set('scores', []);
                                 }
                             }),
                         Forms\Components\Hidden::make('category_id'),
@@ -73,27 +100,23 @@ class EvaluationResource extends Resource
                         Forms\Components\Repeater::make('scores')
                             ->relationship('scores')
                             ->schema([
-                                Forms\Components\Select::make('aspect_id')
+                                // --- AWAL MODIFIKASI ---
+                                Forms\Components\Hidden::make('aspect_id')
+                                    ->required(),
+                                Forms\Components\TextInput::make('aspect_name')
                                     ->label('Aspek')
-                                    ->options(function (Forms\Get $get) {
-                                        $categoryId = $get('../../category_id');
-                                        if (!$categoryId) {
-                                            return [];
+                                    ->disabled() // Aspek hanya dibaca
+                                    ->dehydrated(false) // Jangan simpan field ini ke database
+                                    // Fungsi ini untuk memuat nama aspek di halaman 'edit'
+                                    ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get) {
+                                        $aspectId = $get('aspect_id');
+                                        // Cek jika aspect_name belum di-set (misal: saat load halaman edit)
+                                        if ($aspectId && !$get('aspect_name')) {
+                                            $aspect = Aspect::find($aspectId);
+                                            $set('aspect_name', $aspect?->name);
                                         }
-
-                                        return Aspect::where('category_id', $categoryId)
-                                            ->get()
-                                            ->pluck('name', 'id')
-                                            ->toArray();
-                                    })
-                                    ->required()
-                                    ->disabled(fn ($context) => $context === 'edit')
-                                    ->distinct()
-                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems()
-                                    ->live()
-                                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-                                        static::updateFinalScore($set, $get);
                                     }),
+                                // --- AKHIR MODIFIKASI ---
                                 Forms\Components\TextInput::make('score')
                                     ->label('Nilai')
                                     ->numeric()
@@ -108,7 +131,7 @@ class EvaluationResource extends Resource
                                         return $aspect?->max_score ?? 100;
                                     })
                                     ->required()
-                                    ->live()
+                                    ->live() // Tetap live untuk update final_score
                                     ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                                         static::updateFinalScore($set, $get);
                                     }),
@@ -119,8 +142,12 @@ class EvaluationResource extends Resource
                             ->columns(2)
                             ->required()
                             ->minItems(1)
-                            ->reorderable()
-                            ->addActionLabel('Tambah Aspek Penilaian')
+                            // --- MODIFIKASI: Nonaktifkan aksi repeater ---
+                            ->reorderable(false)
+                            ->addable(false)
+                            ->deletable(false)
+                            // ->addActionLabel('Tambah Aspek Penilaian') // Tidak diperlukan lagi
+                            // --- AKHIR MODIFIKASI ---
                             ->live()
                             ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
                                 static::updateFinalScore($set, $get);
@@ -136,6 +163,8 @@ class EvaluationResource extends Resource
             ]);
     }
 
+    // ... (Sisa file tetap sama) ...
+
     protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
     {
         $scores = $get('scores');
@@ -147,7 +176,9 @@ class EvaluationResource extends Resource
                     $aspect = Aspect::find($score['aspect_id']);
                     if ($aspect) {
                         $weight = $aspect->weight / 100;
-                        $normalizedScore = ($score['score'] / $aspect->max_score) * 100;
+                        // Pastikan max_score tidak nol untuk menghindari division by zero
+                        $maxScore = $aspect->max_score > 0 ? $aspect->max_score : 100;
+                        $normalizedScore = ($score['score'] / $maxScore) * 100;
                         $totalScore += $normalizedScore * $weight;
                     }
                 }
