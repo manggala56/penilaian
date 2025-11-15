@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class JuriResource extends Resource
 {
@@ -24,7 +25,9 @@ class JuriResource extends Resource
     protected static ?string $navigationGroup = 'Manajemen Penilaian';
 
     protected static ?string $recordTitleAttribute = 'user.name';
-    protected static ?int $navigationSort = 5 ;
+
+    protected static ?int $navigationSort = 5;
+
     public static function canViewAny(): bool
     {
         return Auth::user()->role !== 'juri';
@@ -34,54 +37,70 @@ class JuriResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Informasi Akun Juri Baru')
-                    ->description('Buat akun user baru yang akan ditugaskan sebagai juri.')
+                // Section untuk membuat user baru (hanya pada create)
+                Forms\Components\Section::make('Informasi Akun Juri')
+                    ->description('Buat akun user baru untuk juri.')
                     ->schema([
                         Forms\Components\TextInput::make('name')
-                            ->label('Nama User')
+                            ->label('Nama Lengkap')
                             ->required()
                             ->maxLength(255)
-                            ->dehydrated(false)
-                            ->visibleOn('create'),
+                            ->dehydrated(false),
+
                         Forms\Components\TextInput::make('email')
-                            ->label('Email User')
+                            ->label('Email')
                             ->email()
                             ->required()
                             ->maxLength(255)
-                            ->unique(table: User::class, column: 'email')
-                            ->dehydrated(false)
-                            ->visibleOn('create'),
+                            ->unique('users', 'email')
+                            ->dehydrated(false),
+
                         Forms\Components\TextInput::make('password')
                             ->label('Password')
                             ->password()
                             ->required()
                             ->minLength(8)
                             ->dehydrated(false)
-                            ->visibleOn('create'),
+                            ->rule('confirmed'),
+
+                        Forms\Components\TextInput::make('password_confirmation')
+                            ->label('Konfirmasi Password')
+                            ->password()
+                            ->required()
+                            ->minLength(8)
+                            ->dehydrated(false),
                     ])
-                    ->visibleOn('create')
-                    ->columns(2),
+                    ->columns(2)
+                    ->visible(fn ($operation) => $operation === 'create'),
+
+                // Section Informasi User (hanya pada edit)
+                Forms\Components\Section::make('Informasi User')
+                    ->schema([
+                        Forms\Components\TextInput::make('user.name')
+                            ->label('Nama')
+                            ->disabled()
+                            ->dehydrated(false),
+
+                        Forms\Components\TextInput::make('user.email')
+                            ->label('Email')
+                            ->disabled()
+                            ->dehydrated(false),
+                    ])
+                    ->columns(2)
+                    ->visible(fn ($operation) => $operation === 'edit'),
 
                 // Section Informasi Juri
                 Forms\Components\Section::make('Informasi Juri')
                     ->schema([
-                        // User info (hanya edit)
-                        Forms\Components\Select::make('user_id')
-                            ->label('User Juri')
-                            ->relationship('user', 'name')
-                            ->visibleOn('edit')
-                            ->disabled(),
-
                         // Toggle universal juri
                         Forms\Components\Toggle::make('can_judge_all_categories')
                             ->label('Bisa Menilai Semua Kategori')
                             ->default(false)
                             ->live()
-                            ->helperText('Jika diaktifkan, juri ini dapat menilai peserta dari semua kategori')
-                            ->columnSpanFull(),
+                            ->helperText('Jika diaktifkan, juri ini dapat menilai peserta dari semua kategori'),
 
                         // Multi category selection (hanya untuk non-universal)
-                        Forms\Components\Select::make('category_ids')
+                        Forms\Components\Select::make('categories')
                             ->label('Kategori yang Dinilai')
                             ->relationship('categories', 'name')
                             ->multiple()
@@ -90,22 +109,16 @@ class JuriResource extends Resource
                             ->required(fn (Forms\Get $get): bool =>
                                 !$get('can_judge_all_categories')
                             )
-                            ->hidden(fn (Forms\Get $get): bool =>
-                                $get('can_judge_all_categories')
-                            )
-                            ->dehydrated(fn (Forms\Get $get): bool =>
+                            ->visible(fn (Forms\Get $get): bool =>
                                 !$get('can_judge_all_categories')
                             )
-                            ->helperText(fn (Forms\Get $get): string =>
-                                $get('can_judge_all_categories')
-                                    ? ''
-                                    : 'Pilih kategori yang akan dinilai oleh juri ini (bisa multiple)'
-                            ),
+                            ->helperText('Pilih kategori yang akan dinilai oleh juri ini'),
 
                         Forms\Components\Textarea::make('expertise')
                             ->label('Bidang Keahlian')
                             ->rows(3)
-                            ->placeholder('Contoh: Teknologi, Seni, Pendidikan, dll.'),
+                            ->placeholder('Contoh: Teknologi, Seni, Pendidikan, dll.')
+                            ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('max_evaluations')
                             ->label('Maksimal Penilaian')
@@ -118,7 +131,8 @@ class JuriResource extends Resource
                             ->label('Aktif')
                             ->default(true)
                             ->helperText('Nonaktifkan untuk menonaktifkan juri sementara'),
-                    ])->columns(2),
+                    ])
+                    ->columns(2),
             ]);
     }
 
@@ -131,53 +145,71 @@ class JuriResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('category_name')
-                    ->label('Kategori')
-                    ->description(fn ($record): string =>
-                        $record->can_judge_all_categories
-                            ? ''
-                            : '(' . $record->categories->count() . ' kategori)'
-                    )
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Email')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('category_names')
+                    ->label('Kategori')
+                    ->html()
+                    ->description(fn (Juri $record): string =>
+                        $record->can_judge_all_categories
+                            ? 'Semua Kategori'
+                            : '(' . $record->categories_count . ' kategori)'
+                    ),
 
                 Tables\Columns\IconColumn::make('can_judge_all_categories')
-                    ->label('Universal Juri')
+                    ->label('Universal')
                     ->boolean()
-                    ->tooltip(fn ($record): string => $record->can_judge_all_categories
-                        ? 'Dapat menilai semua kategori'
-                        : 'Hanya menilai kategori tertentu'),
+                    ->tooltip(fn (Juri $record): string =>
+                        $record->can_judge_all_categories
+                            ? 'Dapat menilai semua kategori'
+                            : 'Hanya menilai kategori tertentu'
+                    ),
 
                 Tables\Columns\TextColumn::make('expertise')
                     ->label('Keahlian')
                     ->searchable()
-                    ->limit(30),
+                    ->limit(30)
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('max_evaluations')
                     ->label('Maks Nilai')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->formatStateUsing(fn ($state): string =>
+                        $state ?: 'Tidak Terbatas'
+                    ),
 
                 Tables\Columns\TextColumn::make('current_evaluations_count')
                     ->label('Sudah Dinilai')
-                    ->sortable(),
+                    ->sortable()
+                    ->color(fn (Juri $record): string =>
+                        $record->max_evaluations && $record->current_evaluations_count >= $record->max_evaluations
+                            ? 'danger'
+                            : 'success'
+                    ),
 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Status')
-                    ->boolean(),
+                    ->boolean()
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Ditambahkan')
-                    ->dateTime()
-                    ->sortable(),
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                // Filter by categories (many-to-many)
                 Tables\Filters\SelectFilter::make('categories')
                     ->relationship('categories', 'name')
                     ->label('Kategori')
                     ->multiple()
-                    ->preload(),
+                    ->preload()
+                    ->searchable(),
 
                 Tables\Filters\SelectFilter::make('can_judge_all_categories')
                     ->label('Tipe Juri')
@@ -197,7 +229,14 @@ class JuriResource extends Resource
                 Tables\Actions\Action::make('evaluations')
                     ->label('Lihat Penilaian')
                     ->icon('heroicon-o-clipboard-document-check')
-                    ->url(fn ($record) => EvaluationResource::getUrl('index', ['tableFilters[juri][value]' => $record->id])),
+                    ->url(fn (Juri $record): string =>
+                        EvaluationResource::getUrl('index', [
+                            'tableFilters[juri_id][value]' => $record->id
+                        ])
+                    )
+                    ->visible(fn (): bool =>
+                        class_exists(EvaluationResource::class)
+                    ),
 
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
@@ -205,16 +244,33 @@ class JuriResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+
+                    Tables\Actions\BulkAction::make('activate')
+                        ->label('Aktifkan')
+                        ->icon('heroicon-o-check')
+                        ->action(function ($records) {
+                            $records->each->update(['is_active' => true]);
+                        }),
+
+                    Tables\Actions\BulkAction::make('deactivate')
+                        ->label('Nonaktifkan')
+                        ->icon('heroicon-o-x-mark')
+                        ->action(function ($records) {
+                            $records->each->update(['is_active' => false]);
+                        }),
                 ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['user', 'categories', 'evaluations'])
-            ->withCount(['evaluations as current_evaluations_count'])
-            ->orderBy('created_at', 'desc');
+            ->with(['user', 'categories'])
+            ->withCount([
+                'categories as categories_count',
+                'evaluations as current_evaluations_count'
+            ]);
     }
 
     public static function getPages(): array
