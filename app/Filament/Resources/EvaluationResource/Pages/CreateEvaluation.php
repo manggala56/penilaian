@@ -13,14 +13,16 @@ use App\Models\EvaluationScore;
 class CreateEvaluation extends CreateRecord
 {
     protected static string $resource = EvaluationResource::class;
-
     public function mount(): void
     {
         parent::mount();
         $participantId = request()->query('participant_id');
 
+        \Log::info('CreateEvaluation mounted', ['participant_id' => $participantId]);
+
         if ($participantId) {
             $participant = Participant::with('category')->find($participantId);
+            \Log::info('Participant found', ['participant' => $participant]);
 
             if ($participant && $participant->category_id) {
                 $categoryId = $participant->category_id;
@@ -29,46 +31,30 @@ class CreateEvaluation extends CreateRecord
                                  ->orderBy('id')
                                  ->get();
 
-                $scoresData = $aspects->map(function ($aspect) {
-                    return [
+                \Log::info('Aspects found', ['aspects_count' => $aspects->count(), 'category_id' => $categoryId]);
+
+                $scoresData = [];
+                foreach ($aspects as $aspect) {
+                    $scoresData[] = [
                         'aspect_id' => $aspect->id,
                         'aspect_name' => $aspect->name,
                         'score' => null,
                         'comment' => '',
                     ];
-                })->toArray();
+                }
+
+                \Log::info('Scores data prepared', ['scores_data' => $scoresData]);
 
                 $this->form->fill([
                     'participant_id' => $participant->id,
                     'category_name' => $participant->category?->name ?? '',
                     'category_id' => $categoryId,
+                    'evaluation_date' => now(),
                     'scores' => $scoresData,
                 ]);
+
+                \Log::info('Form filled', ['form_data' => $this->form->getState()]);
             }
-        }
-    }
-
-    protected function prefillScoresData($categoryId): void
-    {
-        if ($categoryId) {
-            $aspects = Aspect::where('category_id', $categoryId)
-                            ->orderBy('id')
-                            ->get();
-
-            // Buat data default untuk repeater
-            $scoresData = $aspects->map(function ($aspect) {
-                return [
-                    'aspect_id' => $aspect->id,
-                    'aspect_name' => $aspect->name,
-                    'score' => null,
-                    'comment' => '',
-                ];
-            })->toArray();
-
-            // Set data ke repeater 'scores' menggunakan form state
-            $currentState = $this->form->getState();
-            $currentState['scores'] = $scoresData;
-            $this->form->fill($currentState);
         }
     }
 
