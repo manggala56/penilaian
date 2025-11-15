@@ -194,7 +194,10 @@ class ParticipantResource extends Resource
                     ->visible(fn () => Auth::user()->role == 'juri')
                     ->url(fn (Participant $record) => \App\Filament\Resources\EvaluationResource::getUrl('create', [
                         'participant_id' => $record->id
-                    ])),
+                    ]))
+                    ->hidden(function (Participant $record): bool {
+                        return $record->evaluations_count > 0;
+                    }),
                     Tables\Actions\Action::make('download')
                     ->label('Download')
                     ->icon('heroicon-o-arrow-down-tray')
