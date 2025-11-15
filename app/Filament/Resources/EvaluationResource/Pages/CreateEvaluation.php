@@ -13,7 +13,7 @@ class CreateEvaluation extends CreateRecord
     protected static string $resource = EvaluationResource::class;
 
     // Fungsi mount() ini untuk MENGISI form saat load DARI URL
-    protected function mount(): void
+    public function mount(): void
     {
         parent::mount();
 
