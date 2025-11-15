@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Participant;
+use App\Models\Aspect;
 
 class CreateEvaluation extends CreateRecord
 {
@@ -22,13 +23,32 @@ class CreateEvaluation extends CreateRecord
         if ($participantId) {
             $participant = Participant::with('category')->find($participantId);
 
-            if ($participant) {
+            if ($participant && $participant->category_id) {
                 // Auto-fill form data berdasarkan peserta yang dipilih
                 $this->form->fill([
                     'participant_id' => $participant->id,
                     'category_name' => $participant->category->name ?? '',
                     'category_id' => $participant->category_id,
                     'evaluation_date' => now(),
+                ]);
+
+                // Pre-fill scores data berdasarkan kategori peserta
+                $aspects = Aspect::where('category_id', $participant->category_id)
+                                ->orderBy('id')
+                                ->get();
+
+                $scoresData = $aspects->map(function ($aspect) {
+                    return [
+                        'aspect_id' => $aspect->id,
+                        'aspect_name' => $aspect->name,
+                        'score' => null,
+                        'comment' => '',
+                    ];
+                })->toArray();
+
+                // Isi data scores ke form
+                $this->form->fill([
+                    'scores' => $scoresData,
                 ]);
             }
         }
