@@ -44,6 +44,7 @@ class EvaluationResource extends Resource
                             // Nonaktifkan pilihan peserta di halaman edit
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
+                            // Hook ini berjalan saat nilai DIPILIH (di halaman create)
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
                                 if ($state) {
                                     $participant = Participant::with('category')->find($state);
@@ -80,7 +81,17 @@ class EvaluationResource extends Resource
                                     $set('category_id', null);
                                     $set('scores', []);
                                 }
+                            })
+                            // --- AWAL PERBAIKAN ---
+                            // Hook ini berjalan saat form DIMUAT (di halaman edit)
+                            ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
+                                if ($context === 'edit' && $state) {
+                                    $participant = Participant::with('category')->find($state);
+                                    $set('category_name', $participant?->category?->name ?? '');
+                                    $set('category_id', $participant?->category_id ?? null);
+                                }
                             }),
+                            // --- AKHIR PERBAIKAN ---
                         Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
                             ->label('Kategori')
@@ -100,23 +111,20 @@ class EvaluationResource extends Resource
                         Forms\Components\Repeater::make('scores')
                             ->relationship('scores')
                             ->schema([
-                                // --- AWAL MODIFIKASI ---
                                 Forms\Components\Hidden::make('aspect_id')
                                     ->required(),
                                 Forms\Components\TextInput::make('aspect_name')
                                     ->label('Aspek')
-                                    ->disabled() // Aspek hanya dibaca
-                                    ->dehydrated(false) // Jangan simpan field ini ke database
-                                    // Fungsi ini untuk memuat nama aspek di halaman 'edit'
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    // Fungsi ini memuat nama aspek (baik di create/edit)
                                     ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get) {
                                         $aspectId = $get('aspect_id');
-                                        // Cek jika aspect_name belum di-set (misal: saat load halaman edit)
-                                        if ($aspectId && !$get('aspect_name')) {
+                                        if ($aspectId) {
                                             $aspect = Aspect::find($aspectId);
                                             $set('aspect_name', $aspect?->name);
                                         }
                                     }),
-                                // --- AKHIR MODIFIKASI ---
                                 Forms\Components\TextInput::make('score')
                                     ->label('Nilai')
                                     ->numeric()
@@ -131,7 +139,7 @@ class EvaluationResource extends Resource
                                         return $aspect?->max_score ?? 100;
                                     })
                                     ->required()
-                                    ->live() // Tetap live untuk update final_score
+                                    ->live()
                                     ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                                         static::updateFinalScore($set, $get);
                                     }),
@@ -142,12 +150,9 @@ class EvaluationResource extends Resource
                             ->columns(2)
                             ->required()
                             ->minItems(1)
-                            // --- MODIFIKASI: Nonaktifkan aksi repeater ---
                             ->reorderable(false)
                             ->addable(false)
                             ->deletable(false)
-                            // ->addActionLabel('Tambah Aspek Penilaian') // Tidak diperlukan lagi
-                            // --- AKHIR MODIFIKASI ---
                             ->live()
                             ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
                                 static::updateFinalScore($set, $get);
@@ -162,8 +167,6 @@ class EvaluationResource extends Resource
                     ]),
             ]);
     }
-
-    // ... (Sisa file tetap sama) ...
 
     protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
     {
