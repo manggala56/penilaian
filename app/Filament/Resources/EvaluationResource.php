@@ -41,7 +41,6 @@ class EvaluationResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            // Nonaktifkan pilihan peserta di halaman edit
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
                             // Hook ini berjalan saat nilai DIPILIH (di halaman create)
@@ -106,56 +105,56 @@ class EvaluationResource extends Resource
                 Forms\Components\Section::make('Detail Penilaian')
                     ->schema([
                         Forms\Components\Repeater::make('scores')
-                            ->relationship('scores')
-                            ->schema([
-                                Forms\Components\Hidden::make('aspect_id')
-                                    ->required(),
-                                Forms\Components\TextInput::make('aspect_name')
-                                    ->label('Aspek')
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    // Fungsi ini memuat nama aspek (baik di create/edit)
-                                    ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get) {
-                                        $aspectId = $get('aspect_id');
-                                        if ($aspectId) {
-                                            $aspect = Aspect::find($aspectId);
-                                            $set('aspect_name', $aspect?->name);
-                                        }
-                                    }),
-                                Forms\Components\TextInput::make('score')
-                                    ->label('Nilai')
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->maxValue(function (Forms\Get $get) {
-                                        $aspectId = $get('aspect_id');
-                                        if (!$aspectId) {
-                                            return 100;
-                                        }
+    ->relationship('scores')
+    ->schema([
+        Forms\Components\Hidden::make('aspect_id')
+            ->required(),
+        Forms\Components\TextInput::make('aspect_name')
+            ->label('Aspek')
+            ->disabled()
+            ->dehydrated(false)
+            ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get, $state) {
+                // Perbaiki fungsi ini untuk lebih reliable
+                $aspectId = $get('aspect_id');
+                if ($aspectId) {
+                    $aspect = Aspect::find($aspectId);
+                    $set('aspect_name', $aspect?->name ?? '');
+                }
+            }),
+        Forms\Components\TextInput::make('score')
+            ->label('Nilai')
+            ->numeric()
+            ->minValue(0)
+            ->maxValue(function (Forms\Get $get) {
+                $aspectId = $get('aspect_id');
+                if (!$aspectId) {
+                    return 100;
+                }
 
-                                        $aspect = Aspect::find($aspectId);
-                                        return $aspect?->max_score ?? 100;
-                                    })
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-                                        static::updateFinalScore($set, $get);
-                                    }),
-                                Forms\Components\Textarea::make('comment')
-                                    ->label('Komentar')
-                                    ->columnSpanFull(),
-                            ])
-                            ->columns(2)
-                            ->required()
-                            ->minItems(1)
-                            ->reorderable(false)
-                            ->addable(false)
-                            ->deletable(false)
-                            ->live()
-                            ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                static::updateFinalScore($set, $get);
-                            })
-                            ->hidden(fn (Forms\Get $get) => !$get('category_id')), // Sembunyikan jika belum pilih peserta
-
+                $aspect = Aspect::find($aspectId);
+                return $aspect?->max_score ?? 100;
+            })
+            ->required()
+            ->live()
+            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                static::updateFinalScore($set, $get);
+            }),
+        Forms\Components\Textarea::make('comment')
+            ->label('Komentar')
+            ->columnSpanFull(),
+    ])
+    ->columns(2)
+    ->required()
+    ->minItems(1)
+    ->reorderable(false)
+    ->addable(false)
+    ->deletable(false)
+    ->live()
+    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+        static::updateFinalScore($set, $get);
+    })
+    // PERBAIKI: Condition untuk hidden
+    ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id')),
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
                             ->numeric()

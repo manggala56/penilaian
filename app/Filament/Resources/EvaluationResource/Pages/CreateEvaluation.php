@@ -58,13 +58,10 @@ class CreateEvaluation extends CreateRecord
                 ];
             })->toArray();
 
-            // Set data ke repeater 'scores'
-            $this->form->getState()['scores'] = $scoresData;
-
-            // Juga update form data
-            $this->form->fill([
-                'scores' => $scoresData
-            ]);
+            // Set data ke repeater 'scores' menggunakan form state
+            $currentState = $this->form->getState();
+            $currentState['scores'] = $scoresData;
+            $this->form->fill($currentState);
         }
     }
 
