@@ -33,7 +33,7 @@ class EvaluationResource extends Resource
                 Forms\Components\Section::make('Informasi Penilaian')
                     ->schema([
                         Forms\Components\Hidden::make('user_id')
-                            ->default(fn () => Auth::id()) // Set otomatis saat create
+                            ->default(Auth::id())
                             ->required(),
                         Forms\Components\Select::make('participant_id')
                             ->label('Peserta')
@@ -41,52 +41,48 @@ class EvaluationResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->disabled(fn (string $context) => $context === 'edit') // Hanya bisa dipilih saat create
-                            ->live() // Aktifkan live untuk reaksi terhadap perubahan
+                            // 'disabled' saat 'edit' sudah benar
+                            ->disabled(fn (string $context) => $context === 'edit')
+                            ->live()
+                            // Hook 'afterStateUpdated' ini PENTING untuk perubahan manual
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
-                                // Ketika participant dipilih (atau diubah)
                                 if ($state) {
                                     $participant = Participant::with('category')->find($state);
                                     $categoryId = $participant?->category_id;
-                                    $categoryName = $participant?->category?->name ?? '';
-
-                                    // Set kategori terkait
-                                    $set('category_name', $categoryName);
+                                    $set('category_name', $participant?->category?->name ?? '');
                                     $set('category_id', $categoryId);
 
-                                    // Jika ini adalah halaman Create (bukan Edit)
+                                    // Hanya pre-fill jika ini halaman 'create'
                                     if ($livewire instanceof Pages\CreateEvaluation) {
                                         if ($categoryId) {
-                                            // Ambil aspek-aspek berdasarkan kategori peserta
                                             $aspects = Aspect::where('category_id', $categoryId)
-                                                            ->orderBy('id')
+                                                            ->orderBy('id') // Pastikan urutan konsisten
                                                             ->get();
 
-                                            // Siapkan data untuk repeater 'scores'
+                                            // Buat data default untuk repeater
                                             $scoresData = $aspects->map(function ($aspect) {
                                                 return [
                                                     'aspect_id' => $aspect->id,
                                                     'aspect_name' => $aspect->name,
-                                                    'score' => null, // Nilai awal kosong
-                                                    'comment' => '', // Komentar awal kosong
+                                                    'score' => null,
+                                                    'comment' => '',
                                                 ];
                                             })->toArray();
 
-                                            // Isi repeater 'scores' dengan data yang disiapkan
+                                            // Set data ke repeater 'scores'
                                             $set('scores', $scoresData);
                                         } else {
-                                            // Jika kategori tidak ditemukan, kosongkan scores
-                                            $set('scores', []);
+                                            $set('scores', []); // Kosongkan jika kategori tidak ditemukan
                                         }
                                     }
                                 } else {
-                                    // Jika participant dihapus (misalnya)
+                                    // Kosongkan jika tidak ada peserta
                                     $set('category_name', '');
                                     $set('category_id', null);
                                     $set('scores', []);
                                 }
                             })
-                            // afterStateHydrated penting untuk saat edit, agar tahu kategori & scores awal
+                            // Hook 'afterStateHydrated' ini PENTING untuk halaman 'edit'
                             ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
                                 if ($context === 'edit' && $state) {
                                     $participant = Participant::with('category')->find($state);
@@ -94,11 +90,11 @@ class EvaluationResource extends Resource
                                     $set('category_id', $participant?->category_id ?? null);
                                 }
                             }),
-                        Forms\Components\Hidden::make('category_id'), // Field tersembunyi untuk menyimpan ID kategori
+                        Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
                             ->label('Kategori')
-                            ->disabled() // Hanya untuk tampilan
-                            ->dehydrated(false), // Tidak ikut disimpan ke database
+                            ->disabled()
+                            ->dehydrated(false),
                         Forms\Components\DatePicker::make('evaluation_date')
                             ->label('Tanggal Penilaian')
                             ->required()
@@ -111,69 +107,66 @@ class EvaluationResource extends Resource
                 Forms\Components\Section::make('Detail Penilaian')
                     ->schema([
                         Forms\Components\Repeater::make('scores')
-                            ->relationship('scores') // Hubungkan ke relasi 'scores' di model Evaluation
-                            ->schema([
-                                Forms\Components\Hidden::make('aspect_id')
-                                    ->required(),
-                                Forms\Components\TextInput::make('aspect_name')
-                                    ->label('Aspek')
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->default(function (Forms\Get $get) {
-                                        // Ambil nama aspek berdasarkan aspect_id jika default diperlukan
-                                        $aspectId = $get('aspect_id');
-                                        if ($aspectId) {
-                                            $aspect = Aspect::find($aspectId);
-                                            return $aspect?->name ?? '';
-                                        }
-                                        return '';
-                                    }),
-                                Forms\Components\TextInput::make('score')
-                                    ->label('Nilai')
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->maxValue(function (Forms\Get $get) {
-                                        // Ambil nilai maksimum dari model Aspect
-                                        $aspectId = $get('aspect_id');
-                                        if (!$aspectId) {
-                                            return 100; // Default jika tidak ditemukan
-                                        }
-                                        $aspect = Aspect::find($aspectId);
-                                        return $aspect?->max_score ?? 100;
-                                    })
-                                    ->required()
-                                    ->live() // Aktifkan live untuk perhitungan otomatis
-                                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-                                        // Hitung ulang nilai akhir saat nilai berubah
-                                        static::updateFinalScore($set, $get);
-                                    }),
-                                Forms\Components\Textarea::make('comment')
-                                    ->label('Komentar')
-                                    ->columnSpanFull(),
-                            ])
-                            ->columns(2)
-                            ->required()
-                            ->minItems(1)
-                            ->reorderable(false)
-                            ->addable(false) // Juri tidak bisa menambah aspek baru
-                            ->deletable(false) // Juri tidak bisa menghapus aspek
-                            ->live() // Aktifkan live untuk reaksi terhadap perubahan
-                            ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                // Hitung ulang nilai akhir saat isi repeater berubah
-                                static::updateFinalScore($set, $get);
-                            })
-                            // Sembunyikan repeater jika tidak ada kategori yang dipilih
-                            ->hidden(fn (Forms\Get $get) => !$get('category_id')),
+    ->relationship('scores')
+    ->schema([
+        Forms\Components\Hidden::make('aspect_id')
+            ->required(),
+        Forms\Components\TextInput::make('aspect_name')
+            ->label('Aspek')
+            ->disabled()
+            ->dehydrated(false)
+            ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get, $state) {
+                // Perbaiki fungsi ini untuk lebih reliable
+                $aspectId = $get('aspect_id');
+                if ($aspectId) {
+                    $aspect = Aspect::find($aspectId);
+                    $set('aspect_name', $aspect?->name ?? '');
+                }
+            }),
+        Forms\Components\TextInput::make('score')
+            ->label('Nilai')
+            ->numeric()
+            ->minValue(0)
+            ->maxValue(function (Forms\Get $get) {
+                $aspectId = $get('aspect_id');
+                if (!$aspectId) {
+                    return 100;
+                }
+
+                $aspect = Aspect::find($aspectId);
+                return $aspect?->max_score ?? 100;
+            })
+            ->required()
+            ->live()
+            ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                static::updateFinalScore($set, $get);
+            }),
+        Forms\Components\Textarea::make('comment')
+            ->label('Komentar')
+            ->columnSpanFull(),
+    ])
+    ->columns(2)
+    ->required()
+    ->minItems(1)
+    ->reorderable(false)
+    ->addable(false)
+    // ->deletable(false) // Kita mungkin perlu membiarkan ini, tapi mount() akan mengisinya
+    ->deletable(false)
+    ->live()
+    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+        static::updateFinalScore($set, $get);
+    })
+    // Kondisi hidden ini sudah benar
+    ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id')),
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
                             ->numeric()
-                            ->readOnly() // Hanya untuk tampilan
+                            ->readOnly()
                             ->prefix('Total:'),
                     ]),
             ]);
     }
 
-    // Fungsi untuk menghitung nilai akhir berdasarkan bobot
     protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
     {
         $scores = $get('scores');
@@ -185,7 +178,7 @@ class EvaluationResource extends Resource
                     $aspect = Aspect::find($score['aspect_id']);
                     if ($aspect) {
                         $weight = $aspect->weight / 100;
-                        // Normalisasi skor ke 0-100 berdasarkan max_score aspek
+                        // Pastikan max_score tidak nol untuk menghindari division by zero
                         $maxScore = $aspect->max_score > 0 ? $aspect->max_score : 100;
                         $normalizedScore = ($score['score'] / $maxScore) * 100;
                         $totalScore += $normalizedScore * $weight;
@@ -194,7 +187,6 @@ class EvaluationResource extends Resource
             }
         }
 
-        // Bulatkan ke 2 desimal
         $set('final_score', round($totalScore, 2));
     }
 
@@ -246,7 +238,7 @@ class EvaluationResource extends Resource
 
         $user = Auth::user();
         if ($user->role === 'juri') {
-            // Juri hanya bisa melihat penilaian yang dibuatnya sendiri
+            // Jika menggunakan relasi langsung ke user
             $query->where('user_id', $user->id);
         }
 
@@ -262,26 +254,23 @@ class EvaluationResource extends Resource
         ];
     }
 
-    // Atur hak akses berdasarkan role
     public static function canCreate(): bool
     {
-        return Auth::user()->role === 'juri';
+        return Auth::user()->role == 'juri';
     }
 
     public static function canEdit(Model $record): bool
     {
-        // Juri hanya bisa mengedit penilaian miliknya sendiri
-        return Auth::user()->role === 'juri' && $record->user_id === Auth::id();
+        return Auth::user()->role == 'juri';
     }
 
     public static function canDelete(Model $record): bool
     {
-        // Juri hanya bisa menghapus penilaian miliknya sendiri
-        return Auth::user()->role === 'juri' && $record->user_id === Auth::id();
+        return Auth::user()->role == 'juri';
     }
 
     public static function canDeleteAny(): bool
     {
-        return Auth::user()->role === 'juri';
+        return Auth::user()->role == 'juri';
     }
 }
