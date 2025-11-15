@@ -31,196 +31,162 @@ class EvaluationResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Informasi Penilaian')
-                ->schema([
-                    Forms\Components\Hidden::make('user_id')
-                        ->default(Auth::id())
-                        ->required(),
-                    Forms\Components\Select::make('participant_id')
-                        ->label('Peserta')
-                        ->relationship('participant', 'name')
-                        ->required()
-                        ->searchable()
-                        ->preload()
-                        ->disabled(fn (string $context) => $context === 'edit')
-                        ->live()
-                        ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
-                            if ($state) {
-                                $participant = Participant::with('category')->find($state);
-                                $categoryId = $participant?->category_id;
-                                $set('category_name', $participant?->category?->name ?? '');
-                                $set('category_id', $categoryId);
+                    ->schema([
+                        Forms\Components\Hidden::make('user_id')
+                            ->default(Auth::id())
+                            ->required(),
+                        Forms\Components\Select::make('participant_id')
+                            ->label('Peserta')
+                            ->relationship('participant', 'name')
+                            ->required()
+                            ->searchable()
+                            ->preload()
+                            // Nonaktifkan pilihan peserta di halaman edit
+                            ->disabled(fn (string $context) => $context === 'edit')
+                            ->live()
+                            // Hook ini berjalan saat nilai DIPILIH (di halaman create)
+                            ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
+                                if ($state) {
+                                    $participant = Participant::with('category')->find($state);
+                                    $categoryId = $participant?->category_id;
+                                    $set('category_name', $participant?->category?->name ?? '');
+                                    $set('category_id', $categoryId);
 
-                                // Hanya pre-fill jika ini halaman 'create'
-                                if ($livewire instanceof Pages\CreateEvaluation) {
-                                    if ($categoryId) {
-                                        $aspects = Aspect::where('category_id', $categoryId)
-                                                        ->orderBy('id')
-                                                        ->get();
+                                    // Hanya pre-fill jika ini halaman 'create'
+                                    if ($livewire instanceof Pages\CreateEvaluation) {
+                                        if ($categoryId) {
+                                            $aspects = Aspect::where('category_id', $categoryId)
+                                                            ->orderBy('id') // Pastikan urutan konsisten
+                                                            ->get();
 
-                                        $scoresData = $aspects->map(function ($aspect) {
-                                            return [
-                                                'aspect_id' => $aspect->id,
-                                                'aspect_name' => $aspect->name,
-                                                'score' => null,
-                                                'comment' => '',
-                                            ];
-                                        })->toArray();
+                                            // Buat data default untuk repeater
+                                            $scoresData = $aspects->map(function ($aspect) {
+                                                return [
+                                                    'aspect_id' => $aspect->id,
+                                                    'aspect_name' => $aspect->name,
+                                                    'score' => null,
+                                                    'comment' => '',
+                                                ];
+                                            })->toArray();
 
-                                        $set('scores', $scoresData);
-                                    } else {
-                                        $set('scores', []);
+                                            // Set data ke repeater 'scores'
+                                            $set('scores', $scoresData);
+                                        } else {
+                                            $set('scores', []); // Kosongkan jika kategori tidak ditemukan
+                                        }
                                     }
+                                } else {
+                                    // Kosongkan jika tidak ada peserta
+                                    $set('category_name', '');
+                                    $set('category_id', null);
+                                    $set('scores', []);
                                 }
-                            } else {
-                                $set('category_name', '');
-                                $set('category_id', null);
-                                $set('scores', []);
-                            }
-                        })
-                        ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
-                            if ($context === 'edit' && $state) {
-                                $participant = Participant::with('category')->find($state);
-                                $set('category_name', $participant?->category?->name ?? '');
-                                $set('category_id', $participant?->category_id ?? null);
-                            }
-                        }),
-                    Forms\Components\Hidden::make('category_id'),
-                    Forms\Components\TextInput::make('category_name')
-                        ->label('Kategori')
-                        ->disabled()
-                        ->dehydrated(false),
-                    Forms\Components\DatePicker::make('evaluation_date')
-                        ->label('Tanggal Penilaian')
-                        ->required()
-                        ->default(now()),
-                    Forms\Components\Textarea::make('notes')
-                        ->label('Catatan')
-                        ->columnSpanFull(),
-                ])->columns(2),
+                            })
+                            ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
+                                if ($context === 'edit' && $state) {
+                                    $participant = Participant::with('category')->find($state);
+                                    $set('category_name', $participant?->category?->name ?? '');
+                                    $set('category_id', $participant?->category_id ?? null);
+                                }
+                            }),
+                        Forms\Components\Hidden::make('category_id'),
+                        Forms\Components\TextInput::make('category_name')
+                            ->label('Kategori')
+                            ->disabled()
+                            ->dehydrated(false),
+                        Forms\Components\DatePicker::make('evaluation_date')
+                            ->label('Tanggal Penilaian')
+                            ->required()
+                            ->default(now()),
+                        Forms\Components\Textarea::make('notes')
+                            ->label('Catatan')
+                            ->columnSpanFull(),
+                    ])->columns(2),
 
-            Forms\Components\Section::make('Detail Penilaian')
-                ->schema([
-                    Forms\Components\Repeater::make('scores')
-                        ->relationship('scores')
-                        ->schema([
-                            Forms\Components\Hidden::make('aspect_id')
-                                ->required(),
-                            Forms\Components\TextInput::make('aspect_name')
-                                ->label('Aspek')
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get) {
-                                    $aspectId = $get('aspect_id');
-                                    if ($aspectId) {
+                Forms\Components\Section::make('Detail Penilaian')
+                    ->schema([
+                        Forms\Components\Repeater::make('scores')
+                            ->relationship('scores')
+                            ->schema([
+                                Forms\Components\Hidden::make('aspect_id')
+                                    ->required(),
+                                Forms\Components\TextInput::make('aspect_name')
+                                    ->label('Aspek')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    // Fungsi ini memuat nama aspek (baik di create/edit)
+                                    ->afterStateHydrated(function (Forms\Set $set, Forms\Get $get) {
+                                        $aspectId = $get('aspect_id');
+                                        if ($aspectId) {
+                                            $aspect = Aspect::find($aspectId);
+                                            $set('aspect_name', $aspect?->name);
+                                        }
+                                    }),
+                                Forms\Components\TextInput::make('score')
+                                    ->label('Nilai')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(function (Forms\Get $get) {
+                                        $aspectId = $get('aspect_id');
+                                        if (!$aspectId) {
+                                            return 100;
+                                        }
+
                                         $aspect = Aspect::find($aspectId);
-                                        $set('aspect_name', $aspect?->name);
-                                    }
-                                }),
-                            Forms\Components\TextInput::make('score')
-                                ->label('Nilai')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(function (Forms\Get $get) {
-                                    $aspectId = $get('aspect_id');
-                                    if (!$aspectId) {
-                                        return 100;
-                                    }
+                                        return $aspect?->max_score ?? 100;
+                                    })
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                        static::updateFinalScore($set, $get);
+                                    }),
+                                Forms\Components\Textarea::make('comment')
+                                    ->label('Komentar')
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(2)
+                            ->required()
+                            ->minItems(1)
+                            ->reorderable(false)
+                            ->addable(false)
+                            ->deletable(false)
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+                                static::updateFinalScore($set, $get);
+                            })
+                            ->hidden(fn (Forms\Get $get) => !$get('category_id')), // Sembunyikan jika belum pilih peserta
 
-                                    $aspect = Aspect::find($aspectId);
-                                    return $aspect?->max_score ?? 100;
-                                })
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-                                    static::updateFinalScore($set, $get);
-                                }),
-                            Forms\Components\Textarea::make('comment')
-                                ->label('Komentar')
-                                ->columnSpanFull(),
-                        ])
-                        ->columns(2)
-                        ->required()
-                        ->minItems(1)
-                        ->reorderable(false)
-                        ->addable(false)
-                        ->deletable(false)
-                        ->live()
-                        ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                            static::updateFinalScore($set, $get);
-                        })
-                        // PERUBAHAN: Tambahkan kondisi untuk handle participant_id dari URL
-                        ->hidden(fn (Forms\Get $get, $livewire) =>
-                            !$get('category_id') &&
-                            !($livewire instanceof Pages\CreateEvaluation && request()->has('participant_id'))
-                        ),
-
-                    Forms\Components\TextInput::make('final_score')
-                        ->label('Nilai Akhir')
-                        ->numeric()
-                        ->readOnly()
-                        ->prefix('Total:'),
-                ]),
-        ]);
-}
-
-// Tambahkan method ini untuk handle pre-fill data ketika diakses dari Participant
-public static function resolveRecordCreation(?array $data = null): Model
-{
-    $model = static::getModel();
-    $record = new $model();
-
-    // Jika ada participant_id dari URL, pre-fill data
-    if (request()->has('participant_id')) {
-        $participantId = request('participant_id');
-        $participant = Participant::with('category')->find($participantId);
-
-        if ($participant) {
-            $record->participant_id = $participantId;
-            $record->category_id = $participant->category_id;
-
-            // Pre-fill scores berdasarkan kategori
-            $aspects = Aspect::where('category_id', $participant->category_id)
-                            ->orderBy('id')
-                            ->get();
-
-            $scoresData = $aspects->map(function ($aspect) {
-                return [
-                    'aspect_id' => $aspect->id,
-                    'aspect_name' => $aspect->name,
-                    'score' => null,
-                    'comment' => '',
-                ];
-            })->toArray();
-
-            // Simpan data scores sementara
-            session(['prefilled_scores' => $scoresData]);
-        }
+                        Forms\Components\TextInput::make('final_score')
+                            ->label('Nilai Akhir')
+                            ->numeric()
+                            ->readOnly()
+                            ->prefix('Total:'),
+                    ]),
+            ]);
     }
 
-    return $record;
-}
+    protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
+    {
+        $scores = $get('scores');
+        $totalScore = 0;
 
-protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
-{
-    $scores = $get('scores');
-    $totalScore = 0;
-
-    if (is_array($scores)) {
-        foreach ($scores as $score) {
-            if (isset($score['aspect_id'], $score['score'])) {
-                $aspect = Aspect::find($score['aspect_id']);
-                if ($aspect) {
-                    $weight = $aspect->weight / 100;
-                    $maxScore = $aspect->max_score > 0 ? $aspect->max_score : 100;
-                    $normalizedScore = ($score['score'] / $maxScore) * 100;
-                    $totalScore += $normalizedScore * $weight;
+        if (is_array($scores)) {
+            foreach ($scores as $score) {
+                if (isset($score['aspect_id'], $score['score'])) {
+                    $aspect = Aspect::find($score['aspect_id']);
+                    if ($aspect) {
+                        $weight = $aspect->weight / 100;
+                        // Pastikan max_score tidak nol untuk menghindari division by zero
+                        $maxScore = $aspect->max_score > 0 ? $aspect->max_score : 100;
+                        $normalizedScore = ($score['score'] / $maxScore) * 100;
+                        $totalScore += $normalizedScore * $weight;
+                    }
                 }
             }
         }
-    }
 
-    $set('final_score', round($totalScore, 2));
-}
+        $set('final_score', round($totalScore, 2));
+    }
 
     public static function table(Table $table): Table
     {
