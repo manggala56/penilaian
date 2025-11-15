@@ -6,6 +6,7 @@ use App\Filament\Resources\EvaluationResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\EvaluationScore;
+use Illuminate\Support\Facades\Auth;
 
 class EditEvaluation extends EditRecord
 {
@@ -20,11 +21,7 @@ class EditEvaluation extends EditRecord
     protected function afterFill(): void
     {
         $evaluation = $this->getRecord();
-
-        // Load relasi scores beserta aspeknya
         $scores = $evaluation->scores()->with('aspect')->get();
-
-        // Format data untuk repeater
         $scoresData = $scores->map(function ($score) {
             return [
                 'aspect_id' => $score->aspect_id,
@@ -33,10 +30,9 @@ class EditEvaluation extends EditRecord
                 'comment' => $score->comment,
             ];
         })->toArray();
-
-        // Isi field 'scores' di form
         $this->form->fill([
             'scores' => $scoresData,
+            'user_id' => Auth::id(),
         ]);
     }
 
@@ -46,7 +42,6 @@ class EditEvaluation extends EditRecord
         $evaluation = $this->getRecord();
         $scoresData = $this->form->getState()['scores'] ?? [];
 
-        // Cara termudah untuk sinkronisasi: Hapus yang lama, buat yang baru
         $evaluation->scores()->delete();
 
         foreach ($scoresData as $score) {
