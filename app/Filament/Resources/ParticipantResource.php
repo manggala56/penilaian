@@ -191,14 +191,17 @@ class ParticipantResource extends Resource
                 Tables\Actions\Action::make('evaluate')
                     ->label('Nilai')
                     ->icon('heroicon-o-clipboard-document-check')
+                    ->visible(fn () => Auth::user()->role == 'juri')
                     ->url(fn (Participant $record) => \App\Filament\Resources\EvaluationResource::getUrl('create', ['participant_id' => $record->id])),
                 Tables\Actions\Action::make('download')
                     ->label('Download')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->action(fn (Participant $record) => static::downloadDocuments($record))
                     ->color('success'),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                ->visible(fn () => Auth::user()->role !== 'juri'),
+                Tables\Actions\DeleteAction::make()
+                ->visible(fn () => Auth::user()->role !== 'juri'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
