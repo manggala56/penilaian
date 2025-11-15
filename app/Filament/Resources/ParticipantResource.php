@@ -18,8 +18,6 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use \Illuminate\Database\Eloquent\Model;
 use Filament\Tables\Grouping\Group;
-// Hapus import Action yang lama
-// use Filament\Actions\Action;
 
 class ParticipantResource extends Resource
 {
@@ -273,5 +271,14 @@ class ParticipantResource extends Resource
     public static function canDeleteAny(): bool
     {
         return Auth::user()->role !== 'juri';
+    }
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()->with(['category', 'competition']);
+        $query->withCount('evaluations');
+        $query->orderBy('evaluations_count', 'asc');
+        $query->orderBy('name', 'asc');
+
+        return $query;
     }
 }

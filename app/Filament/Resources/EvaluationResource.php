@@ -97,9 +97,7 @@ class EvaluationResource extends Resource
 
                 Forms\Components\Section::make('Detail Penilaian')
                     ->schema([
-                        // --- PERUBAHAN UTAMA ADA DI SINI ---
                         Forms\Components\Repeater::make('scores')
-                            // ->relationship('scores') // <-- HAPUS (INI BIANG MASALAHNYA)
                             ->schema([
                                 Forms\Components\Hidden::make('aspect_id')
                                     ->required(),
@@ -143,9 +141,7 @@ class EvaluationResource extends Resource
                             ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
                                 static::updateFinalScore($set, $get);
                             })
-                            // ->hidden() Anda sudah benar
                             ->hidden(fn (Forms\Get $get) => empty($get('scores')) && !$get('category_id')),
-                            // ->dehydrated(false), // <-- TAMBAHKAN INI
 
                         Forms\Components\TextInput::make('final_score')
                             ->label('Nilai Akhir')
@@ -156,7 +152,6 @@ class EvaluationResource extends Resource
             ]);
     }
 
-    // Fungsi updateFinalScore() Anda sudah benar, tidak perlu diubah
     protected static function updateFinalScore(Forms\Set $set, Forms\Get $get): void
     {
         $scores = $get('scores');
