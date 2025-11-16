@@ -35,8 +35,6 @@ class EditEvaluation extends EditRecord
             'user_id' => Auth::id(),
         ]);
     }
-
-    // TAMBAHKAN FUNGSI INI UNTUK MENYIMPAN data repeater
     protected function afterSave(): void
     {
         $evaluation = $this->getRecord();

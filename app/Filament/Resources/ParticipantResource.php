@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use \Illuminate\Database\Eloquent\Model;
 use Filament\Tables\Grouping\Group;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\Competition;
 
 class ParticipantResource extends Resource
 {
@@ -279,11 +280,41 @@ class ParticipantResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['category']);
+        $user = Auth::user();
+        if ($user && $user->role !== 'admin') {
+            $activeCompetitions = Competition::where('is_active', true)
+                                            ->with('activeStage', 'categories')
+                                            ->get();
+            if ($activeCompetitions->isEmpty()) {
+                return $query->whereNull('id');
+            }
+            $query->where(function (Builder $participantQuery) use ($activeCompetitions) {
+                $hasActiveStages = false;
+
+                foreach ($activeCompetitions as $competition) {
+                    if ($competition->activeStage) {
+                        $hasActiveStages = true;
+                        $stageOrder = $competition->activeStage->stage_order;
+                        $categoryIds = $competition->categories->pluck('id');
+
+                        if ($categoryIds->isNotEmpty()) {
+                            $participantQuery->orWhere(function (Builder $q) use ($categoryIds, $stageOrder) {
+                                $q->whereIn('category_id', $categoryIds)
+                                ->where('current_stage_order', $stageOrder);
+                            });
+                        }
+                    }
+                }
+
+                if (!$hasActiveStages) {
+                    $participantQuery->whereNull('id');
+                }
+            });
+        }
         $query->withCount('evaluations');
         $query->withAvg('evaluations', 'final_score');
         $query->orderBy('evaluations_count', 'asc');
         $query->orderBy('evaluations_avg_final_score', 'desc');
-
         return $query;
     }
 }

@@ -14,7 +14,8 @@ class Evaluation extends Model
         'user_id',
         'evaluation_date',
         'notes',
-        'final_score'
+        'final_score',
+        'competition_stage_id'
     ];
 
     protected $casts = [

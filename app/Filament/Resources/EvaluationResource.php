@@ -6,6 +6,7 @@ use App\Filament\Resources\EvaluationResource\Pages;
 use App\Models\Evaluation;
 use App\Models\Participant;
 use App\Models\Aspect;
+use App\Models\Competition;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -33,19 +34,49 @@ class EvaluationResource extends Resource
                         Forms\Components\Hidden::make('user_id')
                             ->default(Auth::id())
                             ->required(),
+                        Forms\Components\Hidden::make('competition_stage_id'),
                         Forms\Components\Select::make('participant_id')
                             ->label('Peserta')
-                            ->relationship('participant', 'name')
+                            ->options(function () {
+                                $activeCompetitions = Competition::where('is_active', true)
+                                                                ->with('activeStage', 'categories') // Load relasi yg dibutuhkan
+                                                                ->get();
+
+                                if ($activeCompetitions->isEmpty()) {
+                                    return [];
+                                }
+
+                                $participantQuery = Participant::query();
+
+                                $participantQuery->where(function ($query) use ($activeCompetitions) {
+                                    foreach ($activeCompetitions as $competition) {
+                                        if ($competition->activeStage) {
+                                            $stageOrder = $competition->activeStage->stage_order;
+                                            $categoryIds = $competition->categories->pluck('id');
+                                            $query->orWhere(function ($q) use ($categoryIds, $stageOrder) {
+                                                $q->whereIn('category_id', $categoryIds)
+                                                    ->where('current_stage_order', $stageOrder);
+                                            });
+                                        }
+                                    }
+                                });
+
+                                return $participantQuery->pluck('name', 'id');
+                            })
+                            // ->relationship('participant', 'name')
                             ->required()
                             ->searchable()
                             ->preload()
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
-                            // Hook ini (afterStateUpdated) sudah benar untuk handle "pilih manual"
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
                                 if ($state) {
-                                    $participant = Participant::with('category')->find($state);
+                                    $participant = Participant::with(['category.competition'])->find($state);
+
                                     $categoryId = $participant?->category_id;
+                                    $activeStageId = $participant?->category?->competition?->active_stage_id;
+
+                                    $set('competition_stage_id', $activeStageId); // Ini sudah benar
                                     $set('category_name', $participant?->category?->name ?? '');
                                     $set('category_id', $categoryId);
 
@@ -68,12 +99,12 @@ class EvaluationResource extends Resource
                                         }
                                     }
                                 } else {
+                                    $set('competition_stage_id', null);
                                     $set('category_name', '');
                                     $set('category_id', null);
                                     $set('scores', []);
                                 }
                             })
-                            // Hook ini (afterStateHydrated) sudah benar untuk handle halaman "Edit"
                             ->afterStateHydrated(function ($state, Forms\Set $set, string $context) {
                                 if ($context === 'edit' && $state) {
                                     $participant = Participant::with('category')->find($state);
