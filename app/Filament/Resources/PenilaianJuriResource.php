@@ -80,69 +80,72 @@ class PenilaianJuriResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Nama Peserta')
-                    ->searchable()
-                    ->sortable(),
+                Tables\Columns\Layout\Split::make([
+                    Tables\Columns\Layout\Stack::make([
+                        Tables\Columns\TextColumn::make('name')
+                            ->label('Nama Peserta')
+                            ->searchable()
+                            ->sortable(),
+                        Tables\Columns\TextColumn::make('category.name')
+                            ->label('Kategori')
+                            ->sortable(),
+                    ]),
+                    Tables\Columns\Layout\Stack::make([
+                        Tables\Columns\TextColumn::make('final_score')
+                            ->label('Nilai Final')
+                            ->getStateUsing(function (Participant $record): ?string {
+                                $activeStageId = $record->category?->competition?->active_stage_id;
+                                if (!$activeStageId) return null;
 
-                Tables\Columns\TextColumn::make('category.name')
-                    ->label('Kategori')
-                    ->sortable(),
-                    Tables\Columns\TextColumn::make('final_score')
-                    ->label('Nilai Final')
-                    ->getStateUsing(function (Participant $record): ?string {
-                        $activeStageId = $record->category?->competition?->active_stage_id;
-                        if (!$activeStageId) return null;
+                                $evaluation = $record->evaluations
+                                    ->where('competition_stage_id', $activeStageId)
+                                    ->first();
 
-                        $evaluation = $record->evaluations
-                            ->where('competition_stage_id', $activeStageId)
-                            ->first();
+                                return $evaluation ? number_format($evaluation->final_score, 2) : null;
+                            })
+                            ->default('-')
+                            ->alignEnd(),
+                        Tables\Columns\TextColumn::make('detail_scores')
+                            ->label('Detail Nilai')
+                            ->getStateUsing(function (Participant $record): array {
+                                $activeStageId = $record->category?->competition?->active_stage_id;
+                                if (!$activeStageId) return [];
 
-                        return $evaluation ? number_format($evaluation->final_score, 2) : null;
-                    })
-                    ->default('-')
-                    ->alignEnd(),
+                                $evaluation = $record->evaluations
+                                    ->where('competition_stage_id', $activeStageId)
+                                    ->first();
 
-                    Tables\Columns\TextColumn::make('detail_scores')
-                    ->label('Detail Nilai')
-                    ->getStateUsing(function (Participant $record): array {
-                        $activeStageId = $record->category?->competition?->active_stage_id;
-                        if (!$activeStageId) return [];
+                                if (!$evaluation || $evaluation->scores->isEmpty()) {
+                                    return [];
+                                }
 
-                        $evaluation = $record->evaluations
-                            ->where('competition_stage_id', $activeStageId)
-                            ->first();
+                                $details = $evaluation->scores->map(function ($score, $index) {
+                                    $aspectName = $score->aspect?->name ?? 'Aspek Dihapus';
+                                    $scoreValue = number_format($score->score, 1);
+                                    return ($index + 1) . ". {$aspectName}: {$scoreValue}";
+                                });
 
-                        if (!$evaluation || $evaluation->scores->isEmpty()) {
-                            return [];
-                        }
+                                return $details->toArray();
+                            })
+                            ->listWithLineBreaks()
+                            ->default('-'),
+                    ]),
+                    Tables\Columns\IconColumn::make('status_penilaian')
+                        ->label('Sudah Dinilai')
+                        ->boolean()
+                        ->getStateUsing(function (Participant $record): bool {
+                            $activeStageId = $record->category?->competition?->active_stage_id;
+                            if (!$activeStageId) return false;
 
-                        $details = $evaluation->scores->map(function ($score) {
-                            $aspectName = $score->aspect?->name ?? 'Aspek Dihapus';
-                            $scoreValue = number_format($score->score, 1);
-                            return "{$aspectName}: {$scoreValue}";
-                        });
+                            $evaluation = $record->evaluations
+                                ->where('competition_stage_id', $activeStageId)
+                                ->first();
 
-                        return $details->toArray();
-                    })
-                    ->bulletedList() // <-- INI YANG DIPERBAIKI
-                    ->default('-'),
-                Tables\Columns\IconColumn::make('status_penilaian')
-                    ->label('Sudah Dinilai')
-                    ->boolean()
-                    ->getStateUsing(function (Participant $record): bool {
-                        $activeStageId = $record->category?->competition?->active_stage_id;
-                        if (!$activeStageId) return false;
-
-                        // 'evaluations' sudah difilter by juri_id di getEloquentQuery
-                        $evaluation = $record->evaluations
-                            ->where('competition_stage_id', $activeStageId)
-                            ->first();
-
-                        return $evaluation !== null;
-                    })
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle'),
+                            return $evaluation !== null;
+                        })
+                        ->trueIcon('heroicon-o-check-circle')
+                        ->falseIcon('heroicon-o-x-circle'),
+                ]),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
