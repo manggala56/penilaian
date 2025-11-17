@@ -197,7 +197,18 @@ class PenilaianJuriResource extends Resource
                                 ])
                                 ->compact(),
                         ];
+                    })
+                    ->visible(function (Participant $record) {
+                        $activeStageId = $record->category?->competition?->active_stage_id;
+                        if (!$activeStageId) return false;
+
+                        $evaluation = $record->evaluations
+                            ->where('competition_stage_id', $activeStageId)
+                            ->first();
+
+                        return $evaluation !== null;
                     }),
+
 
                 Action::make('evaluate')
                     ->label(function (Participant $record): string {
