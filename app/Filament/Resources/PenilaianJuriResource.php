@@ -93,6 +93,7 @@ class PenilaianJuriResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('final_score')
+                    ->description('test')
                     ->label('Nilai Final')
                     ->getStateUsing(function (Participant $record): ?string {
                         $activeStageId = $record->category?->competition?->active_stage_id;
