@@ -81,84 +81,48 @@ class PenilaianJuriResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                ->label('Nama Peserta')
-                ->searchable()
-                ->sortable(),
+                    ->label('Nama Peserta')
+                    ->searchable()
+                    ->sortable(),
 
-            Tables\Columns\TextColumn::make('category.name')
-                ->label('Kategori')
-                ->sortable(),
+                Tables\Columns\TextColumn::make('category.name')
+                    ->label('Kategori')
+                    ->sortable(),
 
-            Tables\Columns\TextColumn::make('final_score')
-                ->label('Nilai Final')
-                ->getStateUsing(function (Participant $record): ?string {
-                    $activeStageId = $record->category?->competition?->active_stage_id;
-                    if (!$activeStageId) return null;
+                Tables\Columns\TextColumn::make('final_score')
+                    ->label('Nilai Final')
+                    ->getStateUsing(function (Participant $record): ?string {
+                        $activeStageId = $record->category?->competition?->active_stage_id;
+                        if (!$activeStageId) return null;
 
-                    $evaluation = $record->evaluations
-                        ->where('competition_stage_id', $activeStageId)
-                        ->first();
+                        $evaluation = $record->evaluations
+                            ->where('competition_stage_id', $activeStageId)
+                            ->first();
 
-                    return $evaluation ? number_format($evaluation->final_score, 2) : null;
-                })
-                ->default('-')
-                ->alignEnd(),
+                        return $evaluation ? number_format($evaluation->final_score, 2) : null;
+                    })
+                    ->default('-')
+                    ->alignEnd()
+                    ->weight('bold')
+                    ->color(fn ($state) => $state === '-' ? 'gray' : 'primary'),
 
-            Tables\Columns\TextColumn::make('detail_button')
-                ->label('Detail Nilai')
-                ->formatStateUsing(fn () => 'Lihat Detail')
-                ->color('primary')
-                ->action(
-                    Action::make('viewDetails')
-                        ->modalHeading('Detail Penilaian')
-                        ->modalContent(function (Participant $record) {
-                            $activeStageId = $record->category?->competition?->active_stage_id;
-                            if (!$activeStageId) {
-                                return new HtmlString('<p class="text-gray-500">Tidak ada data penilaian</p>');
-                            }
+                Tables\Columns\IconColumn::make('status_penilaian')
+                    ->label('Status')
+                    ->boolean()
+                    ->getStateUsing(function (Participant $record): bool {
+                        $activeStageId = $record->category?->competition?->active_stage_id;
+                        if (!$activeStageId) return false;
 
-                            $evaluation = $record->evaluations
-                                ->where('competition_stage_id', $activeStageId)
-                                ->first();
+                        $evaluation = $record->evaluations
+                            ->where('competition_stage_id', $activeStageId)
+                            ->first();
 
-                            if (!$evaluation || $evaluation->scores->isEmpty()) {
-                                return new HtmlString('<p class="text-gray-500">Belum ada penilaian</p>');
-                            }
-
-                            $html = '<div class="space-y-2">';
-                            foreach ($evaluation->scores as $index => $score) {
-                                $aspectName = $score->aspect?->name ?? 'Aspek Dihapus';
-                                $scoreValue = number_format($score->score, 1);
-                                $html .= "
-                                    <div class='flex justify-between items-center border-b pb-2'>
-                                        <span class='font-medium'>{$aspectName}</span>
-                                        <span class='text-primary-600 font-bold'>{$scoreValue}</span>
-                                    </div>
-                                ";
-                            }
-                            $html .= '</div>';
-
-                            return new HtmlString($html);
-                        })
-                        ->modalCancelActionLabel('Tutup')
-                ),
-
-            Tables\Columns\IconColumn::make('status_penilaian')
-                ->label('Sudah Dinilai')
-                ->boolean()
-                ->getStateUsing(function (Participant $record): bool {
-                    $activeStageId = $record->category?->competition?->active_stage_id;
-                    if (!$activeStageId) return false;
-
-                    $evaluation = $record->evaluations
-                        ->where('competition_stage_id', $activeStageId)
-                        ->first();
-
-                    return $evaluation !== null;
-                })
-                ->trueIcon('heroicon-o-check-circle')
-                ->falseIcon('heroicon-o-x-circle'),
-
+                        return $evaluation !== null;
+                    })
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
@@ -166,6 +130,75 @@ class PenilaianJuriResource extends Resource
                     ->label('Kategori'),
             ])
             ->actions([
+                Action::make('viewEvaluationDetails')
+                    ->label('Detail')
+                    ->icon('heroicon-o-document-chart-bar')
+                    ->color('gray')
+                    ->modalHeading(fn (Participant $record) => "Detail Penilaian - {$record->name}")
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalWidth('lg')
+                    ->form(function (Participant $record) {
+                        $activeStageId = $record->category?->competition?->active_stage_id;
+
+                        if (!$activeStageId) {
+                            return [
+                                Forms\Components\Placeholder::make('no_stage')
+                                    ->content('Tidak ada tahap kompetisi aktif')
+                                    ->columnSpanFull(),
+                            ];
+                        }
+
+                        $evaluation = $record->evaluations
+                            ->where('competition_stage_id', $activeStageId)
+                            ->first();
+
+                        if (!$evaluation) {
+                            return [
+                                Forms\Components\Placeholder::make('no_evaluation')
+                                    ->content('Belum ada penilaian untuk peserta ini')
+                                    ->columnSpanFull(),
+                            ];
+                        }
+
+                        return [
+                            Forms\Components\Grid::make()
+                                ->schema([
+                                    Forms\Components\Placeholder::make('participant_name')
+                                        ->label('Nama Peserta')
+                                        ->content($record->name),
+
+                                    Forms\Components\Placeholder::make('category')
+                                        ->label('Kategori')
+                                        ->content($record->category?->name ?? '-'),
+                                ])
+                                ->columns(2),
+
+                            Forms\Components\Section::make('Detail Nilai Per Aspek')
+                                ->schema(
+                                    $evaluation->scores->map(function ($score) {
+                                        return Forms\Components\Placeholder::make("score_{$score->id}")
+                                            ->label($score->aspect?->name ?? 'Aspek Dihapus')
+                                            ->content(number_format($score->score, 2))
+                                            ->extraAttributes(['class' => 'border-l-4 border-primary-500 pl-3']);
+                                    })->toArray()
+                                )
+                                ->columns(2)
+                                ->compact(),
+
+                            Forms\Components\Section::make()
+                                ->schema([
+                                    Forms\Components\Placeholder::make('final_score')
+                                        ->label('Nilai Final')
+                                        ->content(number_format($evaluation->final_score, 2))
+                                        ->extraAttributes([
+                                            'class' => 'text-2xl font-bold text-primary-600 text-center'
+                                        ]),
+                                ])
+                                ->compact(),
+                        ];
+                    }),
+
                 Action::make('evaluate')
                     ->label(function (Participant $record): string {
                         $activeStageId = $record->category?->competition?->active_stage_id;
@@ -175,7 +208,9 @@ class PenilaianJuriResource extends Resource
 
                         return $evaluation ? 'Edit Nilai' : 'Beri Nilai';
                     })
-                    ->icon('heroicon-o-clipboard-document-check')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('primary')
+                    ->button()
                     ->url(function (Participant $record): string {
                         $activeStageId = $record->category?->competition?->active_stage_id;
                         $evaluation = $record->evaluations
@@ -183,20 +218,15 @@ class PenilaianJuriResource extends Resource
                             ->first();
 
                         if ($evaluation) {
-                            // Link ke halaman EDIT dari EvaluationResource
                             return EvaluationResource::getUrl('edit', ['record' => $evaluation->id]);
                         } else {
-                            // Link ke halaman CREATE dari EvaluationResource
-                            // Kita kirim participant_id via URL
                             return EvaluationResource::getUrl('create', [
                                 'participant_id' => $record->id,
                             ]);
                         }
                     }),
             ])
-            ->bulkActions([
-                // Juri tidak perlu bulk actions
-            ]);
+            ->bulkActions([]);
     }
 
     public static function getPages(): array
