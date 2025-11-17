@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\EvaluationResource; // <-- PENTING
+use App\Filament\Resources\EvaluationResource;
 use App\Filament\Resources\PenilaianJuriResource\Pages;
 use App\Models\Competition;
 use App\Models\Participant;
-use App\Models\Evaluation; // <-- PENTING
+use App\Models\Evaluation;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -20,8 +20,6 @@ use Illuminate\Database\Eloquent\Model;
 class PenilaianJuriResource extends Resource
 {
     protected static ?string $model = Participant::class;
-
-    // --- Ini adalah konfigurasi menu Juri ---
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
     protected static ?string $navigationLabel = 'Penilaian'; // Ini label menu
     protected static ?string $modelLabel = 'Peserta';
@@ -51,10 +49,13 @@ class PenilaianJuriResource extends Resource
         if ($activeCompetitions->isEmpty()) {
             return Participant::query()->whereRaw('1 = 0');
         }
+
         $participantQuery = Participant::query()
             ->with([
                 'category.competition.activeStage',
-                'evaluations' => fn ($query) => $query->where('user_id', $juriId)
+                'evaluations' => fn ($query) => $query
+                                    ->where('user_id', $juriId)
+                                    ->with('scores.aspect'), // <-- INI YANG PENTING
             ]);
 
         $participantQuery->where(function ($query) use ($activeCompetitions) {
@@ -65,7 +66,7 @@ class PenilaianJuriResource extends Resource
 
                     $query->orWhere(function ($q) use ($categoryIds, $stageOrder) {
                         $q->whereIn('category_id', $categoryIds)
-                          ->where('current_stage_order', $stageOrder);
+                        ->where('current_stage_order', $stageOrder);
                     });
                 }
             }
@@ -91,22 +92,46 @@ class PenilaianJuriResource extends Resource
                     ->label('Nilai Final')
                     ->getStateUsing(function (Participant $record): ?string {
                         $activeStageId = $record->category?->competition?->active_stage_id;
-                        if (!$activeStageId) {
-                            return null;
-                        }
+                        if (!$activeStageId) return null;
+
                         $evaluation = $record->evaluations
                             ->where('competition_stage_id', $activeStageId)
                             ->first();
+
                         return $evaluation ? number_format($evaluation->final_score, 2) : null;
                     })
                     ->default('-')
-                    ->alignEnd() // Opsional: Buat angka jadi rata kanan
-                    ->sortable(false),
+                    ->alignEnd(),
+
+                // === MULAI KOLOM BARU "DETAIL NILAI" ===
+                Tables\Columns\TextColumn::make('detail_scores')
+                    ->label('Detail Nilai')
+                    ->getStateUsing(function (Participant $record): ?string {
+                        $activeStageId = $record->category?->competition?->active_stage_id;
+                        if (!$activeStageId) return null;
+
+                        $evaluation = $record->evaluations
+                            ->where('competition_stage_id', $activeStageId)
+                            ->first();
+
+                        // Jika tidak ada evaluasi atau tidak ada skor detail
+                        if (!$evaluation || $evaluation->scores->isEmpty()) {
+                            return '-';
+                        }
+                        $details = $evaluation->scores->map(function ($score) {
+                            $aspectName = $score->aspect?->name ?? 'Aspek Dihapus';
+                            $scoreValue = number_format($score->score, 1);
+                            return "{$aspectName}: {$scoreValue}";
+                        });
+
+                        return $details->implode("\n");
+                    })
+                    ->listWithLineBreaks() // Tampilkan sebagai daftar (tiap item di baris baru)
+                    ->default('-'),
                 Tables\Columns\IconColumn::make('status_penilaian')
                     ->label('Sudah Dinilai')
                     ->boolean()
                     ->getStateUsing(function (Participant $record): bool {
-                        // Cek evaluasi yang sudah di-load
                         $activeStageId = $record->category?->competition?->active_stage_id;
                         if (!$activeStageId) return false;
 
@@ -126,7 +151,6 @@ class PenilaianJuriResource extends Resource
                     ->label('Kategori'),
             ])
             ->actions([
-                // Aksi kondisional "Nilai" / "Edit"
                 Action::make('evaluate')
                     ->label(function (Participant $record): string {
                         $activeStageId = $record->category?->competition?->active_stage_id;
@@ -167,4 +191,5 @@ class PenilaianJuriResource extends Resource
             // Kita tidak pakai halaman create/edit resource INI
         ];
     }
+
 }
