@@ -258,6 +258,10 @@ class ParticipantResource extends Resource
             'edit' => Pages\EditParticipant::route('/{record}/edit'),
         ];
     }
+    public static function canViewAny(): bool
+    {
+        return Auth::user()->role !== 'juri';
+    }
     public static function canCreate(): bool
     {
         return Auth::user()->role !== 'juri';
