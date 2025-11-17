@@ -65,4 +65,8 @@ class CreateEvaluation extends CreateRecord
             ]);
         }
     }
+    protected function getRedirectUrl(): string
+    {
+        return PenilaianJuriResource::getUrl('index');
+    }
 }

@@ -41,6 +41,7 @@ class EvaluationResource extends Resource
                         Forms\Components\Hidden::make('competition_stage_id'),
                         Forms\Components\Select::make('participant_id')
                             ->label('Peserta')
+
                             ->options(function () {
                                 $activeCompetitions = Competition::where('is_active', true)
                                                                 ->with('activeStage', 'categories') // Load relasi yg dibutuhkan
@@ -72,6 +73,7 @@ class EvaluationResource extends Resource
                             ->searchable()
                             ->preload()
                             ->disabled(fn (string $context) => $context === 'edit')
+                            ->hidden(fn (string $context) => $context === 'edit') // <-- TAMBAHKAN INI
                             ->live()
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {
                                 if ($state) {
@@ -118,13 +120,16 @@ class EvaluationResource extends Resource
                             }),
                         Forms\Components\Hidden::make('category_id'),
                         Forms\Components\TextInput::make('category_name')
-                            ->label('Kategori')
-                            ->disabled()
-                            ->dehydrated(false),
+                        ->label('Kategori')
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->hidden(fn (string $context) => $context === 'edit'),
                         Forms\Components\DatePicker::make('evaluation_date')
                             ->label('Tanggal Penilaian')
                             ->required()
-                            ->default(now()),
+                            ->default(now())
+                            ->disabled()
+                            ->hidden(fn (string $context) => $context === 'edit'),
                         Forms\Components\Textarea::make('notes')
                             ->label('Catatan')
                             ->columnSpanFull(),

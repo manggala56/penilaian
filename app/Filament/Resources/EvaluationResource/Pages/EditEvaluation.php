@@ -51,4 +51,8 @@ class EditEvaluation extends EditRecord
             ]);
         }
     }
+    protected function getSavedRedirectUrl(): string
+    {
+        return PenilaianJuriResource::getUrl('index');
+    }
 }
