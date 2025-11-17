@@ -102,39 +102,49 @@ class PenilaianJuriResource extends Resource
                     return $evaluation ? number_format($evaluation->final_score, 2) : null;
                 })
                 ->default('-')
-                ->alignEnd()
-                ->color(function ($state) {
-                    if ($state === '-') return 'gray';
-                    return 'primary';
-                })
-                ->weight('bold'),
+                ->alignEnd(),
 
-            Tables\Columns\TextColumn::make('score_summary')
-                ->label('Ringkasan Nilai')
-                ->getStateUsing(function (Participant $record): string {
-                    $activeStageId = $record->category?->competition?->active_stage_id;
-                    if (!$activeStageId) return '';
+            Tables\Columns\TextColumn::make('detail_button')
+                ->label('Detail Nilai')
+                ->formatStateUsing(fn () => 'Lihat Detail')
+                ->color('primary')
+                ->action(
+                    Action::make('viewDetails')
+                        ->modalHeading('Detail Penilaian')
+                        ->modalContent(function (Participant $record) {
+                            $activeStageId = $record->category?->competition?->active_stage_id;
+                            if (!$activeStageId) {
+                                return new HtmlString('<p class="text-gray-500">Tidak ada data penilaian</p>');
+                            }
 
-                    $evaluation = $record->evaluations
-                        ->where('competition_stage_id', $activeStageId)
-                        ->first();
+                            $evaluation = $record->evaluations
+                                ->where('competition_stage_id', $activeStageId)
+                                ->first();
 
-                    if (!$evaluation || $evaluation->scores->isEmpty()) {
-                        return '';
-                    }
+                            if (!$evaluation || $evaluation->scores->isEmpty()) {
+                                return new HtmlString('<p class="text-gray-500">Belum ada penilaian</p>');
+                            }
 
-                    $count = $evaluation->scores->count();
-                    $min = $evaluation->scores->min('score');
-                    $max = $evaluation->scores->max('score');
+                            $html = '<div class="space-y-2">';
+                            foreach ($evaluation->scores as $index => $score) {
+                                $aspectName = $score->aspect?->name ?? 'Aspek Dihapus';
+                                $scoreValue = number_format($score->score, 1);
+                                $html .= "
+                                    <div class='flex justify-between items-center border-b pb-2'>
+                                        <span class='font-medium'>{$aspectName}</span>
+                                        <span class='text-primary-600 font-bold'>{$scoreValue}</span>
+                                    </div>
+                                ";
+                            }
+                            $html .= '</div>';
 
-                    return "{$count} aspek (min: {$min}, max: {$max})";
-                })
-                ->default('-')
-                ->color('gray')
-                ->size('sm'),
+                            return new HtmlString($html);
+                        })
+                        ->modalCancelActionLabel('Tutup')
+                ),
 
             Tables\Columns\IconColumn::make('status_penilaian')
-                ->label('Status')
+                ->label('Sudah Dinilai')
                 ->boolean()
                 ->getStateUsing(function (Participant $record): bool {
                     $activeStageId = $record->category?->competition?->active_stage_id;
@@ -147,9 +157,8 @@ class PenilaianJuriResource extends Resource
                     return $evaluation !== null;
                 })
                 ->trueIcon('heroicon-o-check-circle')
-                ->falseIcon('heroicon-o-x-circle')
-                ->trueColor('success')
-                ->falseColor('danger'),
+                ->falseIcon('heroicon-o-x-circle'),
+
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
