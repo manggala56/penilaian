@@ -89,11 +89,11 @@ class PenilaianJuriResource extends Resource
                     ->label('Kategori')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('innovation_title')
+                ->description(fn (Post $record): string => $record->innovation_description)
                     ->label('Judul Inovasi')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('final_score')
-                    ->description('test')
                     ->label('Nilai Final')
                     ->getStateUsing(function (Participant $record): ?string {
                         $activeStageId = $record->category?->competition?->active_stage_id;
