@@ -107,7 +107,6 @@ class PenilaianJuriResource extends Resource
                     ->label('Detail Nilai')
                     ->getStateUsing(function (Participant $record): array {
                         $activeStageId = $record->category?->competition?->active_stage_id;
-                        // 2. Kembalikan array kosong jika tidak ada data
                         if (!$activeStageId) return [];
 
                         $evaluation = $record->evaluations
@@ -115,7 +114,6 @@ class PenilaianJuriResource extends Resource
                             ->first();
 
                         if (!$evaluation || $evaluation->scores->isEmpty()) {
-                            // 3. Kembalikan array kosong jika tidak ada data
                             return [];
                         }
 
@@ -125,10 +123,9 @@ class PenilaianJuriResource extends Resource
                             return "{$aspectName}: {$scoreValue}";
                         });
 
-                        // 4. Kembalikan sebagai ARRAY, bukan string
                         return $details->toArray();
                     })
-                    ->listWithLineBreaks() // <-- Method ini sekarang akan berfungsi
+                    ->bulletedList() // <-- INI YANG DIPERBAIKI
                     ->default('-'),
                 Tables\Columns\IconColumn::make('status_penilaian')
                     ->label('Sudah Dinilai')
