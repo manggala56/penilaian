@@ -27,38 +27,23 @@ class PenilaianJuriResource extends Resource
     protected static ?string $modelLabel = 'Peserta';
     protected static ?string $pluralModelLabel = 'Daftar Peserta untuk Dinilai';
     protected static ?int $navigationSort = 1;
-
-    /**
-     * PENTING: Fungsi ini membuat menu HANYA muncul untuk 'juri'.
-     */
     public static function canViewAny(): bool
     {
         return Auth::user()->role === 'juri';
     }
-
-    /**
-     * Juri tidak bisa membuat/mengedit/menghapus data PESERTA.
-     * Mereka hanya bisa menilai.
-     */
     public static function canCreate(): bool { return false; }
     public static function canEdit(Model $record): bool { return false; }
     public static function canDelete(Model $record): bool { return false; }
 
-
-    // Kita biarkan form() kosong karena juri tidak mengedit peserta
     public static function form(Form $form): Form
     {
         return $form->schema([]);
     }
 
-    /**
-     * Override query untuk menampilkan DAFTAR PESERTA yang relevan.
-     */
     public static function getEloquentQuery(): Builder
     {
         $juriId = Auth::id();
 
-        // 1. Temukan kompetisi aktif
         $activeCompetitions = Competition::where('is_active', true)
                                         ->with('activeStage', 'categories')
                                         ->get();
@@ -66,17 +51,12 @@ class PenilaianJuriResource extends Resource
         if ($activeCompetitions->isEmpty()) {
             return Participant::query()->whereRaw('1 = 0');
         }
-
-        // 2. Buat query dasar untuk Peserta
-        // Eager-load relasi yang akan kita periksa
         $participantQuery = Participant::query()
             ->with([
                 'category.competition.activeStage',
-                // Load HANYA evaluasi milik juri yang sedang login
                 'evaluations' => fn ($query) => $query->where('user_id', $juriId)
             ]);
 
-        // 3. Filter peserta berdasarkan kompetisi & tahapan aktif
         $participantQuery->where(function ($query) use ($activeCompetitions) {
             foreach ($activeCompetitions as $competition) {
                 if ($competition->activeStage) {
@@ -107,7 +87,21 @@ class PenilaianJuriResource extends Resource
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
                     ->sortable(),
-
+                    Tables\Columns\TextColumn::make('final_score')
+                    ->label('Nilai Final')
+                    ->getStateUsing(function (Participant $record): ?string {
+                        $activeStageId = $record->category?->competition?->active_stage_id;
+                        if (!$activeStageId) {
+                            return null;
+                        }
+                        $evaluation = $record->evaluations
+                            ->where('competition_stage_id', $activeStageId)
+                            ->first();
+                        return $evaluation ? number_format($evaluation->final_score, 2) : null;
+                    })
+                    ->default('-')
+                    ->alignEnd() // Opsional: Buat angka jadi rata kanan
+                    ->sortable(false),
                 Tables\Columns\IconColumn::make('status_penilaian')
                     ->label('Sudah Dinilai')
                     ->boolean()
