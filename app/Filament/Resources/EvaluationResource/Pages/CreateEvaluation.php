@@ -9,6 +9,7 @@ use App\Models\Participant;
 use App\Models\Aspect;
 use App\Models\EvaluationScore;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class CreateEvaluation extends CreateRecord
 {
@@ -68,5 +69,11 @@ class CreateEvaluation extends CreateRecord
     protected function getRedirectUrl(): string
     {
         return PenilaianJuriResource::getUrl('index');
+    }
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['evaluation_date'] = Carbon::now();
+
+        return $data;
     }
 }
