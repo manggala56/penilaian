@@ -103,30 +103,32 @@ class PenilaianJuriResource extends Resource
                     ->default('-')
                     ->alignEnd(),
 
-                // === MULAI KOLOM BARU "DETAIL NILAI" ===
-                Tables\Columns\TextColumn::make('detail_scores')
+                    Tables\Columns\TextColumn::make('detail_scores')
                     ->label('Detail Nilai')
-                    ->getStateUsing(function (Participant $record): ?string {
+                    ->getStateUsing(function (Participant $record): array {
                         $activeStageId = $record->category?->competition?->active_stage_id;
-                        if (!$activeStageId) return null;
+                        // 2. Kembalikan array kosong jika tidak ada data
+                        if (!$activeStageId) return [];
 
                         $evaluation = $record->evaluations
                             ->where('competition_stage_id', $activeStageId)
                             ->first();
 
-                        // Jika tidak ada evaluasi atau tidak ada skor detail
                         if (!$evaluation || $evaluation->scores->isEmpty()) {
-                            return '-';
+                            // 3. Kembalikan array kosong jika tidak ada data
+                            return [];
                         }
+
                         $details = $evaluation->scores->map(function ($score) {
                             $aspectName = $score->aspect?->name ?? 'Aspek Dihapus';
                             $scoreValue = number_format($score->score, 1);
                             return "{$aspectName}: {$scoreValue}";
                         });
 
-                        return $details->implode("\n");
+                        // 4. Kembalikan sebagai ARRAY, bukan string
+                        return $details->toArray();
                     })
-                    ->listWithLineBreaks() // Tampilkan sebagai daftar (tiap item di baris baru)
+                    ->listWithLineBreaks() // <-- Method ini sekarang akan berfungsi
                     ->default('-'),
                 Tables\Columns\IconColumn::make('status_penilaian')
                     ->label('Sudah Dinilai')
