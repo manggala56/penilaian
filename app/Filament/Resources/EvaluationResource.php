@@ -132,6 +132,7 @@ class EvaluationResource extends Resource
                         ->hidden(),
                         Forms\Components\Textarea::make('notes')
                             ->label('Catatan')
+                            ->default('')
                             ->columnSpanFull(),
                     ])->columns(2),
 
