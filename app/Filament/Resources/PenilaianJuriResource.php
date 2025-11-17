@@ -88,6 +88,9 @@ class PenilaianJuriResource extends Resource
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('innovation_title')
+                    ->label('Judul Inovasi')
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('final_score')
                     ->label('Nilai Final')
