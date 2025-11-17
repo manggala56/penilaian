@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\EvaluationScore;
 use Illuminate\Support\Facades\Auth;
+use App\Filament\Resources\PenilaianJuriResource;
 
 class EditEvaluation extends EditRecord
 {

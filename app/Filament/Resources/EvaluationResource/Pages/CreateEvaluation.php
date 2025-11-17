@@ -10,6 +10,7 @@ use App\Models\Aspect;
 use App\Models\EvaluationScore;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use App\Filament\Resources\PenilaianJuriResource;
 
 class CreateEvaluation extends CreateRecord
 {
