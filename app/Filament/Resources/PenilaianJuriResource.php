@@ -89,7 +89,9 @@ class PenilaianJuriResource extends Resource
                     ->label('Kategori')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('innovation_title')
-                ->description(fn (Post $record): string => $record->innovation_description)
+                ->description(function (Participant $record): string {
+                    return $record->innovation_description ?? 'Tidak ada deskripsi';
+                })
                     ->label('Judul Inovasi')
                     ->sortable(),
 
