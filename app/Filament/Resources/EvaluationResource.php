@@ -124,12 +124,9 @@ class EvaluationResource extends Resource
                         ->disabled()
                         ->dehydrated(false)
                         ->hidden(fn (string $context) => $context === 'edit'),
-                        Forms\Components\DatePicker::make('evaluation_date')
-                            ->label('Tanggal Penilaian')
-                            ->required()
-                            ->default(now())
-                            ->disabled()
-                            ->hidden(fn (string $context) => $context === 'edit'),
+                        Forms\Components\Hidden::make('evaluation_date')
+                        ->required()
+                        ->default(now()),
                         Forms\Components\Textarea::make('notes')
                             ->label('Catatan')
                             ->columnSpanFull(),
