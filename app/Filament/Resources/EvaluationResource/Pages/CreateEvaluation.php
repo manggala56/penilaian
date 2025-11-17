@@ -21,13 +21,16 @@ class CreateEvaluation extends CreateRecord
         $participantId = request()->query('participant_id');
 
         if ($participantId) {
-            $participant = Participant::with('category')->find($participantId);
+            $participant = Participant::with(['category.competition'])->find($participantId);
 
             if ($participant && $participant->category_id) {
                 $categoryId = $participant->category_id;
-                    $aspects = Aspect::where('category_id', $categoryId)
-                                    ->orderBy('id')
-                                    ->get();
+
+                $activeStageId = $participant->category?->competition?->active_stage_id;
+
+                $aspects = Aspect::where('category_id', $categoryId)
+                                ->orderBy('id')
+                                ->get();
                 $scoresData = $aspects->map(function ($aspect) {
                     return [
                         'aspect_id' => $aspect->id,
@@ -36,21 +39,23 @@ class CreateEvaluation extends CreateRecord
                         'comment' => '',
                     ];
                 })->toArray();
+
                 $this->form->fill([
                     'participant_id' => $participant->id,
                     'category_name' => $participant->category?->name ?? '',
                     'category_id' => $categoryId,
                     'scores' => $scoresData,
                     'user_id' => Auth::id(),
+                    'competition_stage_id' => $activeStageId, // <-- TAMBAHKAN INI
                 ]);
             }
         }
     }
-
     protected function afterCreate(): void
     {
         $evaluation = $this->getRecord();
         $scoresData = $this->form->getState()['scores'] ?? [];
+
         foreach ($scoresData as $score) {
             EvaluationScore::create([
                 'evaluation_id' => $evaluation->id,

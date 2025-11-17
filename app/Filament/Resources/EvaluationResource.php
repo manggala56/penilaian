@@ -66,6 +66,7 @@ class EvaluationResource extends Resource
                             // ->relationship('participant', 'name')
                             ->required()
                             ->searchable()
+                            ->preload()
                             ->disabled(fn (string $context) => $context === 'edit')
                             ->live()
                             ->afterStateUpdated(function ($state, Forms\Set $set, $livewire) {

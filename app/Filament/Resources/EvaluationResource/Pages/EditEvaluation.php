@@ -18,6 +18,17 @@ class EditEvaluation extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+
+        $evaluation = $this->getRecord();
+        $participant = $evaluation->participant->load('category');
+
+        $this->form->fill([
+            'category_name' => $participant->category?->name ?? '',
+        ]);
+    }
     protected function afterFill(): void
     {
         $evaluation = $this->getRecord();
@@ -43,7 +54,7 @@ class EditEvaluation extends EditRecord
         $evaluation->scores()->delete();
 
         foreach ($scoresData as $score) {
-            EvaluationScore::create([
+            EvaluationScore::updateOrCreate([
                 'evaluation_id' => $evaluation->id,
                 'aspect_id' => $score['aspect_id'],
                 'score' => $score['score'],
