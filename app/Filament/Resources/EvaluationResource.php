@@ -24,8 +24,9 @@ class EvaluationResource extends Resource
     protected static ?string $navigationLabel = 'Penilaian';
     protected static ?string $navigationGroup = 'Manajemen Penilaian';
     protected static ?int $navigationSort = 4;
-    public static function canViewAny(): bool
+    public static function shouldRegisterNavigation(): bool
     {
+        // Hanya tampilkan di navigasi jika BUKAN juri
         return Auth::user()->role !== 'juri';
     }
     public static function form(Form $form): Form
