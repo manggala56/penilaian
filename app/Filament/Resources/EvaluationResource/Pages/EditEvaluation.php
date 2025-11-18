@@ -45,7 +45,7 @@ class EditEvaluation extends EditRecord
 
         foreach ($scoresData as $score) {
             EvaluationScore::create([
-                'evaluation_id' => $evaluation->id,
+                'evaluation_id' => $evaluation->id ,
                 'aspect_id' => $score['aspect_id'],
                 'score' => $score['score'],
                 'comment' => $score['comment'] ?? '',
