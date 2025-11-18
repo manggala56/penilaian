@@ -33,11 +33,15 @@ class WelcomeController extends Controller
             $settings = [
                 'primary_color' => Setting::getValue('primary_color', '#3b82f6'),
                 'secondary_color' => Setting::getValue('secondary_color', '#1e40af'),
+                'competition_title' => Setting::getValue('competition_title', 'Lomba Inovasi Kabupaten Nganjuk 2024'),
+                'prize_total' => Setting::getValue('prize_total', 'TOTAL HADIAH 90 JUTA!'),
+                'footer_badge_date' => Setting::getValue('footer_badge_date', '1–31 Oktober 2024'),
+                'competition_theme' => Setting::getValue('competition_theme', 'Inovasi sebagai sarana peningkatan peran potensi lokal untuk Nganjuk yang berdaya saing'),
                 'contact_phone' => Setting::getValue('contact_phone', '081335109003'),
                 'contact_email' => Setting::getValue('contact_email', 'info@nganjukkab.go.id'),
                 'contact_person' => Setting::getValue('contact_person', 'YULI'),
-                'competition_theme' => Setting::getValue('competition_theme', 'Inovasi sebagai sarana peningkatan peran potensi lokal untuk Nganjuk yang berdaya saing'),
                 'registration_location' => Setting::getValue('registration_location', 'di Bidang Litbang Bappeda Kab. Nganjuk (pada jam kerja)'),
+                'min_description_char' => Setting::getValue('min_description_char', 25),
             ];
 
             return view('welcome', compact('categories', 'settings'));

@@ -3,20 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lomba Inovasi Kabupaten Nganjuk 2024</title>
+    <title>{{ $settings['competition_title'] ?? 'Lomba Inovasi Kabupaten Nganjuk' }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Segoe+UI:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 
     <style>
+       :root {
+        --highlight: {{ $settings['primary_color'] ?? '#0066cc' }};
+        --primary: {{ $settings['secondary_color'] ?? '#0a1931' }};
+        --secondary: {{ $settings['secondary_color'] ?? '#1e40af' }};
+        --gradient-start: {{ $settings['secondary_color'] ?? '#0a1931' }};
+        --gradient-end: {{ $settings['primary_color'] ?? '#1e40af' }};
+        --accent: {{ $settings['primary_color'] ?? '#0066cc' }};
+    }
+    .btn-primary, .btn {
+        background-color: var(--highlight) !important;
+        border-color: var(--highlight) !important;
+    }
+
+    .btn-primary:hover, .btn:hover {
+        filter: brightness(90%);
+    }    .feature-icon {
+        color: var(--highlight) !important;
+    }
+    .feature-card:hover .feature-icon {
+        background-color: var(--highlight) !important;
+        color: white !important;
+    }    .poster-badge, .poster-highlight {
+        background: var(--highlight) !important;
+    }
         .swal2-popup {
             font-family: 'Poppins', 'Segoe UI', sans-serif !important;
             border-radius: 12px !important;
         }
-
-        /* Tombol Confirm (OK, Ya, Kirim, dll) → biru tua #1e40af */
         .swal2-confirm.swal2-styled {
-            background-color: #1e40af !important;
+            background-color:  color: var(--highlight) !important;
             color: white !important;
             border: none !important;
             border-radius: 8px !important;
@@ -27,7 +49,7 @@
         }
 
         .swal2-confirm.swal2-styled:hover {
-            background-color: #1e3a8a !important;
+            background-color:  color: var(--highlight) !important;
             transform: translateY(-2px) !important;
             box-shadow: 0 8px 25px rgba(30, 64, 175, 0.5) !important;
         }
@@ -81,7 +103,7 @@
 <!-- Hero -->
 <section class="hero">
     <div class="container hero-content">
-        <h1 class="reveal-on-scroll">Lomba Inovasi Kabupaten Nganjuk 2024</h1>
+        <h1 class="reveal-on-scroll">{{ $settings['competition_title'] ?? 'Lomba Inovasi Kabupaten Nganjuk 2024' }}</h1>
         <p class="reveal-on-scroll">{{ $settings['competition_theme'] ?? 'Inovasi sebagai sarana peningkatan peran potensi lokal untuk Nganjuk yang berdaya saing' }}</p>
         <a href="#registration" class="btn btn-primary reveal-on-scroll">Daftar Sekarang</a>
     </div>
@@ -112,7 +134,7 @@
             </div>
         </div>
         <div class="poster-highlight reveal-on-scroll" style="margin-top: 3rem;">
-            <h3>TOTAL HADIAH 90 JUTA!</h3>
+            <h3>{{ $settings['prize_total'] ?? 'TOTAL HADIAH 90 JUTA!' }}</h3>
         </div>
     </div>
 </section>
@@ -231,7 +253,8 @@
             <div class="footer-section reveal-on-scroll">
                 <h3><i class="fas fa-trophy"></i> Lomba Inovasi</h3>
                 <p>Mendorong kreativitas masyarakat Kabupaten Nganjuk.</p>
-                <div class="poster-badge"><i class="fas fa-calendar"></i> 1–31 Oktober 2024</div>
+                {{-- 5. Badge Tanggal Dinamis --}}
+                <div class="poster-badge" style="background: var(--color-primary)"><i class="fas fa-calendar"></i> {{ $settings['footer_badge_date'] ?? '1–31 Oktober 2024' }}</div>
             </div>
             <div class="footer-section reveal-on-scroll">
                 <h3><i class="fas fa-map-marker-alt"></i> Lokasi</h3>
@@ -245,7 +268,7 @@
             </div>
         </div>
         <div class="copyright">
-            <p>&copy; 2024 Lomba Inovasi Kabupaten Nganjuk</p>
+            <p>&copy; {{ date('Y') }} {{ $settings['competition_title'] ?? 'Lomba Inovasi Kabupaten Nganjuk' }}</p>
             <p>Info lengkap: <a href="https://jendelalitbang.nganjukkab.go.id/litbang/berita" target="_blank">jendelalitbang.nganjukkab.go.id</a></p>
             <p>Contact Person: {{ $settings['contact_person'] ?? 'YULI' }} - WA: {{ $settings['contact_phone'] ?? '081335109003' }}</p>
         </div>

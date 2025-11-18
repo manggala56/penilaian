@@ -20,23 +20,32 @@ class CMS extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    // --- Konfigurasi Halaman ---
     protected static ?string $navigationIcon = 'heroicon-o-home-modern';
     protected static string $view = 'filament.pages.c-m-s';
     protected static ?string $title = 'Pengaturan Halaman Depan (CMS)';
     protected static ?string $navigationLabel = 'Halaman Depan';
     protected static ?string $navigationGroup = 'Manajemen Sistem';
-    protected static ?int $navigationSort = 98; // Tampil di atas Pengaturan Umum
+    protected static ?int $navigationSort = 98;
 
-    // Daftar semua kunci (keys) pengaturan yang ada di WelcomeController.php
     protected const WELCOME_SETTINGS_CONFIG = [
+        // Tampilan
         'primary_color' => ['default' => '#3b82f6', 'type' => 'color', 'group' => 'appearance'],
         'secondary_color' => ['default' => '#1e40af', 'type' => 'color', 'group' => 'appearance'],
+
+        // Konten Utama (Hero & Footer)
+        'competition_title' => ['default' => 'Lomba Inovasi Kabupaten Nganjuk 2024', 'type' => 'text', 'group' => 'general'],
+        'competition_theme' => ['default' => 'Inovasi sebagai sarana peningkatan peran potensi lokal untuk Nganjuk yang berdaya saing', 'type' => 'textarea', 'group' => 'competition'],
+        'prize_total' => ['default' => 'TOTAL HADIAH 90 JUTA!', 'type' => 'text', 'group' => 'competition'],
+        'footer_badge_date' => ['default' => '1–31 Oktober 2024', 'type' => 'text', 'group' => 'general'],
+
+        // Kontak & Lokasi
         'contact_phone' => ['default' => '081335109003', 'type' => 'text', 'group' => 'contact'],
         'contact_email' => ['default' => 'info@nganjukkab.go.id', 'type' => 'email', 'group' => 'contact'],
         'contact_person' => ['default' => 'YULI', 'type' => 'text', 'group' => 'contact'],
-        'competition_theme' => ['default' => 'Inovasi sebagai sarana peningkatan peran potensi lokal untuk Nganjuk yang berdaya saing', 'type' => 'textarea', 'group' => 'competition'],
-        'registration_location' => ['default' => 'di Bidang Litbang Bappeda Kab. Nganjuk (pada jam kerja)', 'type' => 'textarea', 'group' => 'competition'],
+        'registration_location' => ['default' => 'di Bidang Litbang Bappeda Kab. Nganjuk (pada jam kerja)', 'type' => 'textarea', 'group' => 'contact'],
+
+        // Konfigurasi Teknis
+        'min_description_char' => ['default' => '25', 'type' => 'number', 'group' => 'system'],
     ];
 
     public array $data = [];
@@ -60,66 +69,66 @@ class CMS extends Page implements HasForms
         $this->form->fill($settingsData);
     }
 
-    /**
-     * Mendefinisikan skema formulir.
-     */
     public function form(Form $form): Form
     {
         return $form
             ->schema([
-                Section::make('Tampilan Warna')
-                    ->description('Sesuaikan skema warna untuk halaman depan. Default: Warna Utama (#3b82f6), Warna Sekunder (#1e40af)')
+                Section::make('Tampilan & Header')
                     ->schema([
+                        TextInput::make('competition_title')
+                            ->label('Judul Lomba (Header)')
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpanFull(),
                         ColorPicker::make('primary_color')
-                            ->label('Warna Utama')
+                            ->label('Warna Utama (Tombol/Icon)')
                             ->required(),
                         ColorPicker::make('secondary_color')
-                            ->label('Warna Sekunder')
+                            ->label('Warna Sekunder (Hover/Bg)')
                             ->required(),
-                    ])
-                    ->columns(2),
+                    ])->columns(2),
 
-                Section::make('Informasi Lomba')
-                    ->description('Teks utama yang ditampilkan di bagian Hero dan Footer.')
+                Section::make('Konten Kompetisi')
                     ->schema([
+                        TextInput::make('prize_total')
+                            ->label('Teks Total Hadiah')
+                            ->placeholder('Contoh: TOTAL HADIAH 90 JUTA!')
+                            ->required(),
+                        TextInput::make('footer_badge_date')
+                            ->label('Badge Tanggal (di Footer)')
+                            ->placeholder('Contoh: 1–31 Oktober 2024')
+                            ->required(),
                         Textarea::make('competition_theme')
                             ->label('Tema Lomba')
                             ->rows(3)
                             ->required()
-                            ->maxLength(500),
-                        Textarea::make('registration_location')
-                            ->label('Lokasi Pendaftaran')
-                            ->rows(3)
-                            ->required()
-                            ->maxLength(500),
-                    ]),
+                            ->columnSpanFull(),
+                        TextInput::make('min_description_char')
+                            ->label('Minimal Karakter Deskripsi Inovasi')
+                            ->numeric()
+                            ->default(25)
+                            ->helperText('Batas minimal panjang karakter saat peserta mengisi deskripsi.')
+                            ->required(),
+                    ])->columns(2),
 
-                Section::make('Kontak Person')
-                    ->description('Data kontak yang akan ditampilkan di bagian Footer.')
+                Section::make('Kontak & Lokasi')
                     ->schema([
                         TextInput::make('contact_person')
-                            ->label('Nama Kontak Person')
-                            ->required()
-                            ->maxLength(255),
+                            ->label('Nama Kontak Person'),
                         TextInput::make('contact_phone')
-                            ->label('Nomor Telepon Kontak (WA)')
-                            ->tel()
-                            ->required()
-                            ->maxLength(255),
+                            ->label('No. WA Kontak'),
                         TextInput::make('contact_email')
                             ->label('Email Kontak')
-                            ->email()
-                            ->required()
-                            ->maxLength(255),
-                    ])
-                    ->columns(3),
+                            ->email(),
+                        Textarea::make('registration_location')
+                            ->label('Lokasi Pendaftaran')
+                            ->rows(2)
+                            ->columnSpanFull(),
+                    ])->columns(3),
             ])
             ->statePath('data');
     }
 
-    /**
-     * Tombol aksi untuk menyimpan data.
-     */
     protected function getFormActions(): array
     {
         return [
@@ -130,9 +139,6 @@ class CMS extends Page implements HasForms
         ];
     }
 
-    /**
-     * Logika untuk menyimpan data menggunakan Model Setting.
-     */
     public function save(): void
     {
         try {
@@ -142,16 +148,12 @@ class CMS extends Page implements HasForms
 
             foreach ($data as $key => $value) {
                 $config = self::WELCOME_SETTINGS_CONFIG[$key];
-
-                // Menggunakan updateOrCreate untuk memastikan data Setting tersimpan
-                // dengan kolom 'type' dan 'group' yang sesuai (seperti di SettingResource)
-                //
                 Setting::updateOrCreate(
                     ['key' => $key],
                     [
                         'value' => $value,
-                        'type' => $config['type'], // Mengisi kolom 'type' secara otomatis
-                        'group' => $config['group'], // Mengisi kolom 'group' secara otomatis
+                        'type' => $config['type'],
+                        'group' => $config['group'],
                     ]
                 );
             }
