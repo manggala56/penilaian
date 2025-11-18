@@ -62,17 +62,17 @@ class WelcomeController extends Controller
 
     public function store(Request $request)
     {
-        // Validasi data input
+        // Validasi
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:participants,email',
-            'phone' => 'required|string|max:20',
-            'institution' => 'nullable|string|max:255',
-            'category' => 'required|exists:categories,id',
-            'innovation_title' => 'required|string|max:255',
-            'innovation_description' => 'required|string|min:50|max:2000',
-            'documents' => 'required|array|min:1|max:5',
-            'documents.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png,zip|max:10240', // 10MB
+            'name'                  => 'required|string|max:255',
+            'email'                 => 'required|email',
+            'phone'                 => 'required|string|max:20',
+            'institution'           => 'nullable|string|max:255',
+            'category'              => 'required|exists:categories,id',
+            'innovation_title'      => 'required|string|max:255',
+            'innovation_description'=> 'required|string|min:25|max:2000',
+            'documents'             => 'required|array|min:1|max:5',
+            'documents.*'           => 'file|mimes:pdf,doc,docx,jpg,jpeg,png,zip|max:10240',
         ], [
             'name.required' => 'Nama lengkap wajib diisi.',
             'email.required' => 'Email wajib diisi.',
@@ -80,7 +80,6 @@ class WelcomeController extends Controller
             'email.unique' => 'Email ini sudah terdaftar sebagai peserta.',
             'phone.required' => 'Nomor telepon wajib diisi.',
             'category.required' => 'Kategori lomba wajib dipilih.',
-            'category.exists' => 'Kategori yang dipilih tidak valid.',
             'innovation_title.required' => 'Judul inovasi wajib diisi.',
             'innovation_description.required' => 'Deskripsi inovasi wajib diisi.',
             'innovation_description.min' => 'Deskripsi inovasi minimal 50 karakter.',
@@ -91,114 +90,87 @@ class WelcomeController extends Controller
             'documents.*.max' => 'Ukuran file maksimal 10MB.',
         ]);
 
-        // Cek jika validasi gagal
         if ($validator->fails()) {
-            Log::warning('Validation failed', ['errors' => $validator->errors()->all(), 'email' => $request->email]);
-            return redirect()
-                ->back()
-                ->withErrors($validator)
-                ->withInput()
-                ->with('error', 'Terjadi kesalahan dalam pengisian form. Silakan periksa kembali.');
+            return response()->json([
+                'success' => false,
+                'message' => 'Terdapat kesalahan pada form.',
+                'errors'  => $validator->errors()
+            ], 422);
         }
-
-        // Validasi IP address (maksimal 3 pendaftaran per IP)
+        if (Participant::where('email', $request->email)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email ini sudah terdaftar sebagai peserta. Gunakan email lain.'
+            ], 422);
+        }
+        // Cek IP limit (1x dalam 24 jam)
         $ipAddress = $request->ip();
         $ipCount = UploadHistory::where('ip_address', $ipAddress)
             ->where('created_at', '>=', now()->subHours(24))
             ->count();
 
-        if ($ipCount >= 3) {
-            Log::warning('IP limit exceeded', ['ip' => $ipAddress, 'count' => $ipCount]);
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'Maaf, Anda telah mencapai batas maksimal pendaftaran (3x dalam 24 jam) dari perangkat/jaringan ini.');
+        if ($ipCount >= 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Maaf, Anda hanya boleh mendaftar 1 kali dalam 24 jam dari perangkat/jaringan ini.'
+            ], 429);
         }
 
-        // Validasi email unik (double check)
-        $emailExists = Participant::where('email', $request->email)->exists();
-        if ($emailExists) {
-            Log::warning('Duplicate email detected', ['email' => $request->email]);
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'Email ini sudah terdaftar sebagai peserta. Mohon gunakan email lain.');
-        }
 
         try {
             DB::beginTransaction();
 
-            // Handle file upload
             $documentPaths = [];
             if ($request->hasFile('documents')) {
-                foreach ($request->file('documents') as $document) {
-                    // Generate unique filename
-                    $originalName = pathinfo($document->getClientOriginalName(), PATHINFO_FILENAME);
-                    $extension = $document->getClientOriginalExtension();
+                foreach ($request->file('documents') as $file) {
+                    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                    $extension = $file->getClientOriginalExtension();
                     $filename = time() . '_' . uniqid() . '_' . \Str::slug($originalName) . '.' . $extension;
 
-                    // Store file
-                    $path = $document->storeAs('participant-documents', $filename, 'public');
-                    $documentPaths[] = [
-                        'path' => $path,
-                        'original_name' => $document->getClientOriginalName(),
-                        'size' => $document->getSize(),
-                        'mime_type' => $document->getMimeType(),
-                    ];
+                    $path = $file->storeAs('participant-documents', $filename, 'public');
+
+                    $documentPaths[] = $path;
                 }
             }
 
-            // Create participant
             $participant = Participant::create([
-                'category_id' => $request->category,
-                'name' => $request->name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'institution' => $request->institution,
-                'innovation_title' => $request->innovation_title,
+                'category_id'            => $request->category,
+                'name'                   => $request->name,
+                'email'                  => $request->email,
+                'phone'                  => $request->phone,
+                'institution'            => $request->institution,
+                'innovation_title'       => $request->innovation_title,
                 'innovation_description' => $request->innovation_description,
-                'documents' => $documentPaths,
-                'is_approved' => false,
-                'registration_date' => now(),
+                'documents'              => $documentPaths,
+                'is_approved'            => false,
+                'registration_date'      => now(),
             ]);
 
-            // Record upload history
             UploadHistory::create([
-                'participant_id' => $participant->id,
-                'email' => $request->email,
-                'ip_address' => $ipAddress,
-                'user_agent' => $request->header('User-Agent'),
+                'participant_id'       => $participant->id,
+                'email'                => $request->email,
+                'ip_address'           => $ipAddress,
+                'user_agent'           => $request->header('User-Agent'),
                 'uploaded_files_count' => count($documentPaths),
             ]);
 
             DB::commit();
 
-            // Log success
-            Log::info('Registration successful', [
-                'participant_id' => $participant->id,
-                'email' => $participant->email,
-                'category_id' => $participant->category_id
+            return response()->json([
+                'success' => true,
+                'message' => 'Pendaftaran berhasil! Terima kasih telah mendaftar. Kami akan menghubungi Anda melalui email.'
             ]);
-
-            return redirect()
-                ->back()
-                ->with('success', 'Pendaftaran berhasil! Terima kasih telah mendaftar. Kami akan menghubungi Anda melalui email untuk informasi lebih lanjut.');
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Registration failed: ' . $e->getMessage());
 
-            Log::error('Registration error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'email' => $request->email
-            ]);
-
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('error', 'Terjadi kesalahan sistem saat menyimpan data. Silakan coba lagi dalam beberapa saat. Jika masalah berlanjut, hubungi contact person yang tersedia.');
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan sistem. Silakan coba lagi nanti atau hubungi contact person.'
+            ], 500);
         }
     }
-
     /**
      * Method untuk menampilkan halaman sukses (optional)
      */
