@@ -9,6 +9,46 @@
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 
     <style>
+        .swal2-popup {
+            font-family: 'Poppins', 'Segoe UI', sans-serif !important;
+            border-radius: 12px !important;
+        }
+
+        /* Tombol Confirm (OK, Ya, Kirim, dll) → biru tua #1e40af */
+        .swal2-confirm.swal2-styled {
+            background-color: #1e40af !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            padding: 10px 28px !important;
+            font-weight: 600 !important;
+            box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4) !important;
+            transition: all 0.3s ease !important;
+        }
+
+        .swal2-confirm.swal2-styled:hover {
+            background-color: #1e3a8a !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 25px rgba(30, 64, 175, 0.5) !important;
+        }
+
+        .swal2-confirm.swal2-styled:focus {
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.5) !important;
+        }
+
+        /* Kalau ada tombol Cancel/Tidak → tetap merah supaya kontras */
+        .swal2-cancel.swal2-styled {
+            background-color: #dc2626 !important;
+            border-radius: 8px !important;
+        }
+
+        .swal2-cancel.swal2-styled:hover {
+            background-color: #b91c1c !important;
+        }
+
+        /* Icon success & error biar lebih bold */
+        .swal2-success-ring { border-color: rgba(34, 197, 94, 0.3) !important; }
+        .swal2-error { border-color: #fca5a5 !important; }
         .error-text { color: #dc2626; font-size: 0.875rem; margin-top: 0.25rem; display: block; }
         .form-group.has-error input,
         .form-group.has-error textarea,
