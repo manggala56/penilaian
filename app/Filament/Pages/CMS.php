@@ -23,7 +23,7 @@ class CMS extends Page implements HasForms
     protected static ?string $navigationIcon = 'heroicon-o-home-modern';
     protected static string $view = 'filament.pages.c-m-s';
     protected static ?string $title = 'Pengaturan Halaman Depan (CMS)';
-    protected static ?string $navigationLabel = 'Halaman Depan';
+    protected static ?string $navigationLabel = 'Setting Tampilan';
     protected static ?string $navigationGroup = 'Manajemen Sistem';
     protected static ?int $navigationSort = 98;
 
@@ -55,13 +55,9 @@ class CMS extends Page implements HasForms
         return Auth::user()->role !== 'juri';
     }
 
-    /**
-     * Mengisi formulir dengan nilai yang sudah tersimpan atau nilai default.
-     */
     public function mount(): void
     {
         $settingsData = [];
-        // Menggunakan Setting::getValue() dari model Setting Anda
         foreach (self::WELCOME_SETTINGS_CONFIG as $key => $config) {
             //
             $settingsData[$key] = Setting::getValue($key, $config['default']);
