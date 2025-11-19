@@ -60,4 +60,8 @@ class Evaluation extends Model
 
         return round($totalScore, 2);
     }
+    public function competitionStage(): BelongsTo
+    {
+        return $this->belongsTo(CompetitionStage::class, 'competition_stage_id');
+    }
 }

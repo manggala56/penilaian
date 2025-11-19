@@ -16,6 +16,9 @@ use Filament\Tables\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Filament\Forms\Components\FileUpload;
+use Illuminate\Support\HtmlString;
 
 class PenilaianJuriResource extends Resource
 {
@@ -136,6 +139,11 @@ class PenilaianJuriResource extends Resource
                     ->label('Kategori'),
             ])
             ->actions([
+                Tables\Actions\Action::make('download')
+                ->label('Download')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->action(fn (Participant $record) => static::downloadDocuments($record))
+                ->color('success'),
                 Action::make('viewEvaluationDetails')
                     ->label('Detail')
                     ->icon('heroicon-o-document-chart-bar')
@@ -245,7 +253,38 @@ class PenilaianJuriResource extends Resource
             ])
             ->bulkActions([]);
     }
+    public static function downloadDocuments(Participant $participant)
+    {
+        if (empty($participant->documents)) {
+            return;
+        }
 
+        if (count($participant->documents) === 1) {
+            return Storage::disk('public')->download($participant->documents[0]);
+        }
+
+        $zip = new \ZipArchive();
+        $zipFileName = 'documents-' . $participant->id . '.zip';
+        $zipPath = storage_path('app/public/temp/' . $zipFileName);
+
+        if (!file_exists(dirname($zipPath))) {
+            mkdir(dirname($zipPath), 0755, true);
+        }
+
+        if ($zip->open($zipPath, \ZipArchive::CREATE) === TRUE) {
+            foreach ($participant->documents as $document) {
+                if (Storage::disk('public')->exists($document)) {
+                    $zip->addFile(
+                        Storage::disk('public')->path($document),
+                        basename($document)
+                    );
+                }
+            }
+            $zip->close();
+        }
+
+        return response()->download($zipPath)->deleteFileAfterSend(true);
+    }
     public static function getPages(): array
     {
         return [

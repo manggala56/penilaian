@@ -234,6 +234,12 @@ class EvaluationResource extends Resource
                     ->label('Nilai Akhir')
                     ->numeric(2)
                     ->sortable(),
+                Tables\Columns\TextColumn::make('competitionStage.name')
+                    ->label('Tahapan')
+                    ->sortable()
+                    ->searchable()
+                    ->badge()
+                    ->color('info'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('participant.category')
