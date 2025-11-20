@@ -19,11 +19,11 @@ class EditEvaluation extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
-    protected function afterFill(): void
+    protected function mutateFormDataBeforeFill(array $data): array
     {
         $evaluation = $this->getRecord();
         $scores = $evaluation->scores()->with('aspect')->get();
-        $scoresData = $scores->map(function ($score) {
+        $data['scores'] = $scores->map(function ($score) {
             return [
                 'aspect_id' => $score->aspect_id,
                 'aspect_name' => $score->aspect?->name ?? '',
@@ -31,10 +31,13 @@ class EditEvaluation extends EditRecord
                 'comment' => $score->comment,
             ];
         })->toArray();
-        $this->form->fill([
-            'scores' => $scoresData,
-            'user_id' => Auth::id(),
-        ]);
+        $data['user_id'] = Auth::id();
+        if ($evaluation->participant) {
+            $data['category_id'] = $evaluation->participant->category_id;
+            $data['category_name'] = $evaluation->participant->category->name ?? '';
+        }
+
+        return $data;
     }
     protected function afterSave(): void
     {
@@ -51,8 +54,9 @@ class EditEvaluation extends EditRecord
                 'comment' => $score['comment'] ?? '',
             ]);
         }
+
     }
-    protected function getSavedRedirectUrl(): string
+    protected function getRedirectUrl(): string
     {
         return PenilaianJuriResource::getUrl('index');
     }

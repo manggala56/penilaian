@@ -144,6 +144,85 @@ class PenilaianJuriResource extends Resource
                 ->icon('heroicon-o-arrow-down-tray')
                 ->action(fn (Participant $record) => static::downloadDocuments($record))
                 ->color('success'),
+                Action::make('viewPdf')
+    ->label('View PDF')
+    ->icon('heroicon-o-eye')
+    ->color('info')
+    ->visible(fn (Participant $record) => !empty($record->documents))
+    ->modalHeading(fn (Participant $record) => "Preview Dokumen – {$record->name}")
+    ->modalSubmitAction(false)
+    ->modalCancelActionLabel('Tutup')
+    ->modalWidth('4xl')
+    ->form(function (Participant $record) {
+        if (empty($record->documents)) {
+            return [
+                Forms\Components\Placeholder::make('no_documents')
+                    ->content('Tidak ada dokumen untuk ditampilkan.')
+                    ->columnSpanFull(),
+            ];
+        }
+
+        $pdf = collect($record->documents)->first(fn ($doc) => strtolower(pathinfo($doc, PATHINFO_EXTENSION)) === 'pdf');
+        $fileToShow = $pdf ?? $record->documents[0];
+
+        $filePath = $fileToShow;
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+        // Pastikan file ada
+        if (!Storage::disk('public')->exists($filePath)) {
+            return [
+                Forms\Components\Placeholder::make('missing')
+                    ->content("File '{$filePath}' tidak ditemukan.")
+                    ->columnSpanFull(),
+            ];
+        }
+
+        $fileUrl = Storage::disk('public')->url($filePath);
+
+        // Escape URL untuk keamanan
+        $escapedUrl = htmlspecialchars($fileUrl, ENT_QUOTES, 'UTF-8');
+
+        if ($extension === 'pdf') {
+            $html = <<<HTML
+                <div style="border:1px solid #e5e7eb; border-radius:0.5rem; overflow:hidden;">
+                    <iframe
+                        src="{$escapedUrl}#toolbar=0&navpanes=0&scrollbar=1"
+                        width="100%"
+                        height="600"
+                        style="border:none; display:block;"
+                        title="Preview PDF"
+                    ></iframe>
+                </div>
+            HTML;
+        } elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'svg'])) {
+            $html = <<<HTML
+                <div style="text-align:center;">
+                    <img
+                        src="{$escapedUrl}"
+                        alt="Preview Dokumen"
+                        style="max-width:100%; max-height:600px; border-radius:0.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.1);"
+                    />
+                </div>
+            HTML;
+        } else {
+            $html = <<<HTML
+                <p class="text-gray-600">File dengan ekstensi <code>.{$extension}</code> tidak dapat dipreview.</p>
+                <a href="{$escapedUrl}" target="_blank" class="mt-2 inline-flex items-center px-3 py-2 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-5l-4 5m0 0l4 5m-4-5h10" />
+                    </svg>
+                    Buka di Tab Baru
+                </a>
+            HTML;
+        }
+
+        return [
+            Forms\Components\Placeholder::make('preview')
+                ->label('Preview')
+                ->content(new HtmlString($html))
+                ->columnSpanFull(),
+        ];
+    }),
                 Action::make('viewEvaluationDetails')
                     ->label('Detail')
                     ->icon('heroicon-o-document-chart-bar')
