@@ -140,11 +140,11 @@ class PenilaianJuriResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('download')
-                ->label('Downloadsss')
+                ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->action(fn (Participant $record) => static::downloadDocuments($record))
                 ->color('success'),
-                Action::make('viewPdf')
+                Tables\Actions\Action::make('viewPdf')
     ->label('View PDF')
     ->icon('heroicon-o-eye')
     ->color('info')
