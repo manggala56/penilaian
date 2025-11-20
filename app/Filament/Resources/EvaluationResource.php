@@ -7,6 +7,7 @@ use App\Models\Evaluation;
 use App\Models\Participant;
 use App\Models\Aspect;
 use App\Models\Competition;
+use App\Models\Setting;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
