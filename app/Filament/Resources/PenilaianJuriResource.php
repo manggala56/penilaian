@@ -96,7 +96,8 @@ class PenilaianJuriResource extends Resource
                     return $record->innovation_description ?? 'Tidak ada deskripsi';
                 })
                     ->label('Judul Inovasi')
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('final_score')
                     ->label('Nilai Final')

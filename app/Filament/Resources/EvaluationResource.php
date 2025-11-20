@@ -94,7 +94,7 @@ class EvaluationResource extends Resource
                                             $scoresData = $aspects->map(function ($aspect) {
                                                 return [
                                                     'aspect_id' => $aspect->id,
-                                                    'aspect_name' => $aspect->name,
+                                                    'aspect_name' => $aspect->name . ' (' . $aspect->weight . '%)',
                                                     'score' => null,
                                                     'comment' => '',
                                                 ];
@@ -145,7 +145,7 @@ class EvaluationResource extends Resource
                                         $aspectId = $get('aspect_id');
                                         if ($aspectId) {
                                             $aspect = Aspect::find($aspectId);
-                                            $set('aspect_name', $aspect?->name ?? '');
+                                            $set('aspect_name', $aspect ? "{$aspect->name} ({$aspect->weight}%)" : '');
                                         }
                                     }),
                                 Forms\Components\TextInput::make('score')
@@ -159,7 +159,7 @@ class EvaluationResource extends Resource
                                         return $aspect?->max_score ?? 100;
                                     })
                                     ->required()
-                                    ->live()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                                         static::updateFinalScore($set, $get);
                                     }),
