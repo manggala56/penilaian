@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Filament\Forms\Components\FileUpload;
 use Illuminate\Support\HtmlString;
+use App\Models\Setting;
+use Filament\Support\Enums\Alignment;
 
 class PenilaianJuriResource extends Resource
 {
@@ -82,6 +84,26 @@ class PenilaianJuriResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+        ->header(function () {
+            $status = Setting::getJudgingStatus();
+
+            if ($status === 'not_started') {
+                $start = Setting::first()->judging_start->format('d M Y H:i');
+                return view('filament.components.alert-warning', [
+                    'title' => 'Penilaian Belum Dimulai',
+                    'message' => "Fitur penilaian akan dibuka pada: {$start}"
+                ]);
+            }
+
+            if ($status === 'ended') {
+                return view('filament.components.alert-danger', [
+                    'title' => 'Penilaian Berakhir',
+                    'message' => 'Sesi penilaian telah ditutup. Anda tidak dapat mengubah atau menambah nilai lagi.'
+                ]);
+            }
+
+            return null;
+        })
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Peserta')
@@ -316,6 +338,13 @@ class PenilaianJuriResource extends Resource
                     ->icon('heroicon-o-pencil-square')
                     ->color('primary')
                     ->button()
+                    ->visible(function (Participant $record) {
+                        if (Setting::getJudgingStatus() !== 'open') {
+                            return false;
+                        }
+                        $activeStageId = $record->category?->competition?->active_stage_id;
+                        return $activeStageId !== null;
+                    })
                     ->url(function (Participant $record): string {
                         $activeStageId = $record->category?->competition?->active_stage_id;
                         $evaluation = $record->evaluations
@@ -331,6 +360,16 @@ class PenilaianJuriResource extends Resource
                         }
                     }),
             ])
+            ->description(function() {
+                $status = Setting::getJudgingStatus();
+                if ($status === 'not_started') {
+                    return new HtmlString('<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50" role="alert"><span class="font-medium">Penilaian Belum Dimulai!</span> Harap tunggu jadwal yang ditentukan.</div>');
+                }
+                if ($status === 'ended') {
+                    return new HtmlString('<div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert"><span class="font-medium">Penilaian Berakhir!</span> Sesi penilaian telah ditutup.</div>');
+                }
+                return null;
+            })
             ->bulkActions([]);
     }
     public static function downloadDocuments(Participant $participant)

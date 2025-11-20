@@ -283,21 +283,21 @@ class EvaluationResource extends Resource
 
     public static function canCreate(): bool
     {
-        return Auth::user()->role == 'juri';
+        return Auth::user()->role == 'juri' && Setting::getJudgingStatus() === 'open';
     }
 
     public static function canEdit(Model $record): bool
     {
-        return Auth::user()->role == 'juri';
+        return Auth::user()->role == 'juri' && Setting::getJudgingStatus() === 'open';
     }
 
     public static function canDelete(Model $record): bool
     {
-        return Auth::user()->role == 'juri';
+        return Auth::user()->role == 'superadmin';
     }
 
     public static function canDeleteAny(): bool
     {
-        return Auth::user()->role == 'juri';
+        return Auth::user()->role == 'superadmin';
     }
 }
