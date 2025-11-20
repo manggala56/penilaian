@@ -139,8 +139,8 @@ class PenilaianJuriResource extends Resource
                     ->label('Kategori'),
             ])
             ->actions([
-                Tables\Actions\Action::make('downloadsss')
-                ->label('Download')
+                Tables\Actions\Action::make('download')
+                ->label('Downloadsss')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->action(fn (Participant $record) => static::downloadDocuments($record))
                 ->color('success'),
