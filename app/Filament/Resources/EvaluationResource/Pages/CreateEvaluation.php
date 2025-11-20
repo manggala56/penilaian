@@ -14,6 +14,7 @@ use App\Filament\Resources\PenilaianJuriResource;
 
 class CreateEvaluation extends CreateRecord
 {
+    protected static bool $canCreateAnother = false;
     protected static string $resource = EvaluationResource::class;
 
     public function mount(): void
