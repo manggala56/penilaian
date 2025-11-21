@@ -40,7 +40,7 @@ class Juri extends Model
 
     public function evaluations(): HasMany
     {
-        return $this->hasMany(Evaluation::class, 'juri_id'); // Pastikan kolom ini sesuai
+        return $this->hasMany(Evaluation::class, 'user_id', 'user_id');
     }
 
     // Accessor untuk jumlah evaluasi saat ini
