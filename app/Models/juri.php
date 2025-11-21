@@ -37,10 +37,9 @@ class Juri extends Model
         return $this->belongsToMany(Category::class, 'juri_category', 'juri_id', 'category_id')
                     ->withTimestamps();
     }
-
     public function evaluations(): HasMany
     {
-        return $this->hasMany(Evaluation::class, 'user_id', 'user_id');
+        return $this->hasMany(Evaluation::class, 'juri_id');
     }
 
     // Accessor untuk jumlah evaluasi saat ini

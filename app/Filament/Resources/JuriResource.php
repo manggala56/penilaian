@@ -231,7 +231,7 @@ class JuriResource extends Resource
                     ->icon('heroicon-o-clipboard-document-check')
                     ->url(fn (Juri $record): string =>
                         EvaluationResource::getUrl('index', [
-                            'tableFilters[user][value]' => $record->user_id
+                            'tableFilters[juri_id][value]' => $record->id
                         ])
                     )
                     ->visible(fn (): bool =>
