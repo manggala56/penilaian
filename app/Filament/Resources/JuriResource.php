@@ -226,6 +226,7 @@ class JuriResource extends Resource
                     ]),
             ])
             ->actions([
+
                 Tables\Actions\Action::make('evaluations')
                     ->label('Lihat Penilaian')
                     ->icon('heroicon-o-clipboard-document-check')
