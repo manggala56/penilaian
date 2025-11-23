@@ -54,6 +54,7 @@ namespace App\Filament\Widgets;
 
         private function getBaseParticipantQuery(): Builder
         {
+            $juriId = Auth::id();
             $juriProfile = Juri::where('user_id', $juriId)->with('categories')->first();
 
             $activeCompetitions = Competition::where('is_active', true)
