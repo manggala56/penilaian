@@ -66,6 +66,10 @@ class TabelBelumDinilai extends BaseWidget
         if ($activeCompetitions->isEmpty()) return Participant::query()->whereRaw('1 = 0');
 
         $query = Participant::query();
+        if ($juriProfile && !$juriProfile->can_judge_all_categories) {
+            $allowedCategoryIds = $juriProfile->categories->pluck('id')->toArray();
+            $query->whereIn('category_id', $allowedCategoryIds);
+        }
         $query->where(function ($q) use ($activeCompetitions) {
             foreach ($activeCompetitions as $competition) {
                 if ($competition->activeStage) {
