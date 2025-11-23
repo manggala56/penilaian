@@ -3,6 +3,7 @@ namespace App\Filament\Widgets;
 
     use App\Models\Competition;
     use App\Models\Participant;
+    use App\Models\Juri;
     use Filament\Widgets\StatsOverviewWidget as BaseWidget;
     use Filament\Widgets\StatsOverviewWidget\Stat;
     use Illuminate\Support\Facades\Auth;
@@ -51,9 +52,10 @@ namespace App\Filament\Widgets;
             ];
         }
 
-        // Helper untuk mendapatkan query peserta aktif (Copy logic dari PenilaianJuriResource)
         private function getBaseParticipantQuery(): Builder
         {
+            $juriProfile = Juri::where('user_id', $juriId)->with('categories')->first();
+
             $activeCompetitions = Competition::where('is_active', true)
                 ->with('activeStage', 'categories')
                 ->get();
@@ -63,7 +65,10 @@ namespace App\Filament\Widgets;
             }
 
             $query = Participant::query();
-
+            if ($juriProfile && !$juriProfile->can_judge_all_categories) {
+                $allowedCategoryIds = $juriProfile->categories->pluck('id')->toArray();
+                $query->whereIn('category_id', $allowedCategoryIds);
+            }
             $query->where(function ($q) use ($activeCompetitions) {
                 foreach ($activeCompetitions as $competition) {
                     if ($competition->activeStage) {

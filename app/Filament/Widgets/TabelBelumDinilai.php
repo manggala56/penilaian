@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\Competition;
 use App\Models\Participant;
+use App\Models\Juri;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -45,12 +46,18 @@ class TabelBelumDinilai extends BaseWidget
     private function getFilteredQuery(): Builder
     {
         $juriId = Auth::id();
-        $activeStageIds = Competition::where('is_active', true)->pluck('active_stage_id')->toArray();
+        $juriProfile = Juri::where('user_id', $juriId)->with('categories')->first();
 
-        // Ambil query dasar
-        $query = $this->getBaseParticipantQuery();
+        $activeCompetitions = Competition::where('is_active', true)->with('activeStage', 'categories')->get();
+        if ($activeCompetitions->isEmpty()) return Participant::query()->whereRaw('1 = 0');
 
-        // Filter HANYA yang TIDAK punya evaluasi di stage aktif
+        $query = Participant::query();
+
+        if ($juriProfile && !$juriProfile->can_judge_all_categories) {
+            $allowedCategoryIds = $juriProfile->categories->pluck('id')->toArray();
+            $query->whereIn('category_id', $allowedCategoryIds);
+        }
+
         return $query->whereDoesntHave('evaluations', function (Builder $q) use ($juriId, $activeStageIds) {
             $q->where('user_id', $juriId)
               ->whereIn('competition_stage_id', $activeStageIds);
