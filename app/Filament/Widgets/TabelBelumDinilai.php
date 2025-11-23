@@ -46,31 +46,27 @@ class TabelBelumDinilai extends BaseWidget
     private function getFilteredQuery(): Builder
     {
         $juriId = Auth::id();
-        $juriProfile = Juri::where('user_id', $juriId)->with('categories')->first();
+        $activeStageIds = Competition::where('is_active', true)->pluck('active_stage_id')->toArray();
 
-        $activeCompetitions = Competition::where('is_active', true)->with('activeStage', 'categories')->get();
-        if ($activeCompetitions->isEmpty()) return Participant::query()->whereRaw('1 = 0');
-
-        $query = Participant::query();
-
-        if ($juriProfile && !$juriProfile->can_judge_all_categories) {
-            $allowedCategoryIds = $juriProfile->categories->pluck('id')->toArray();
-            $query->whereIn('category_id', $allowedCategoryIds);
-        }
+        $query = $this->getBaseParticipantQuery();
 
         return $query->whereDoesntHave('evaluations', function (Builder $q) use ($juriId, $activeStageIds) {
             $q->where('user_id', $juriId)
-              ->whereIn('competition_stage_id', $activeStageIds);
+                ->whereIn('competition_stage_id', $activeStageIds);
         });
     }
 
     // Helper yang sama (Copy Paste)
     private function getBaseParticipantQuery(): Builder
     {
+        $juriId = Auth::id();
+        $juriProfile = Juri::where('user_id', $juriId)->with('categories')->first();
+
         $activeCompetitions = Competition::where('is_active', true)->with('activeStage', 'categories')->get();
         if ($activeCompetitions->isEmpty()) return Participant::query()->whereRaw('1 = 0');
 
-        return Participant::query()->where(function ($q) use ($activeCompetitions) {
+        $query = Participant::query();
+        $query->where(function ($q) use ($activeCompetitions) {
             foreach ($activeCompetitions as $competition) {
                 if ($competition->activeStage) {
                     $stageOrder = $competition->activeStage->stage_order;
@@ -81,5 +77,6 @@ class TabelBelumDinilai extends BaseWidget
                 }
             }
         });
+        return $query;
     }
 }
