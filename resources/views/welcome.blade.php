@@ -192,12 +192,25 @@
                 <div class="form-group @error('category') has-error @enderror">
                     <label for="category"><i class="fas fa-list"></i> Kategori Lomba *</label>
                     <select id="category" name="category" required>
-                        <option value="">Pilih kategori</option>
-                        @foreach($categories as $category)
-                            <option value="{{ $category->id }}" {{ old('category') == $category->id ? 'selected' : '' }}>
-                                {{ $category->name }}
-                            </option>
-                        @endforeach
+                        @if($activeCompetitions->isNotEmpty())
+                            @foreach($activeCompetitions as $competition)
+                                <optgroup label="{{ $competition->name }}">
+                                    @foreach($competition->activeCategories as $category)
+                                        <option value="{{ $category->id }}" {{ old('category') == $category->id ? 'selected' : '' }}>
+                                            {{ $category->name }}
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        @elseif($orphanCategories->isNotEmpty())
+                            <optgroup label="Umum">
+                                @foreach($orphanCategories as $category)
+                                    <option value="{{ $category->id }}" {{ old('category') == $category->id ? 'selected' : '' }}>
+                                        {{ $category->name }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @endif
                     </select>
                     @error('category') <span class="error-text">{{ $message }}</span> @enderror
                 </div>

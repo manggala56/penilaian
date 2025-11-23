@@ -42,13 +42,11 @@ class Juri extends Model
         return $this->hasMany(Evaluation::class, 'user_id', 'user_id');
     }
 
-    // Accessor untuk jumlah evaluasi saat ini
     public function getCurrentEvaluationsCountAttribute(): int
     {
         return $this->evaluations()->count();
     }
 
-    // Accessor untuk nama kategori yang bisa dinilai
     public function getCategoryNamesAttribute(): string
     {
         if ($this->can_judge_all_categories) {

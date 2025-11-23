@@ -20,25 +20,17 @@ namespace App\Filament\Widgets;
         {
             $juriId = Auth::id();
 
-            // 1. Ambil Query Dasar Peserta yang Aktif (Sama seperti di PenilaianJuriResource)
             $query = $this->getBaseParticipantQuery();
-
-            // 2. Hitung Total Peserta (yang harus dinilai)
             $totalPeserta = $query->clone()->count();
-
-            // 3. Ambil ID Stage yang sedang aktif dari semua kompetisi
             $activeStageIds = Competition::where('is_active', true)
                 ->pluck('active_stage_id')
                 ->filter()
                 ->toArray();
-
-            // 4. Filter Peserta yang SUDAH dinilai pada stage aktif ini
             $sudahDinilai = $query->clone()->whereHas('evaluations', function (Builder $q) use ($juriId, $activeStageIds) {
                 $q->where('user_id', $juriId)
                 ->whereIn('competition_stage_id', $activeStageIds);
             })->count();
 
-            // 5. Hitung Belum Dinilai
             $belumDinilai = $totalPeserta - $sudahDinilai;
 
             return [

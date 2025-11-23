@@ -18,17 +18,15 @@ class WelcomeController extends Controller
     public function index()
     {
         try {
-            $currentCompetition = Competition::where('is_active', true)
-                ->where('start_date', '<=', now())
-                ->where('end_date', '>=', now())
-                ->first();
-
-            // Jika tidak ada kompetisi aktif, ambil kategori default
-            if (!$currentCompetition) {
-                $categories = Category::where('is_active', true)->get();
-            } else {
-                $categories = $currentCompetition->activeCategories;
-            }
+                $activeCompetitions = Competition::where('is_active', true)
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now())
+                    ->with('activeCategories')
+                    ->get();
+                $orphanCategories = collect();
+                if ($activeCompetitions->isEmpty()) {
+                    $orphanCategories = Category::where('is_active', true)->get();
+                }
 
             $settings = [
                 'primary_color' => Setting::getValue('primary_color', '#3b82f6'),
@@ -44,11 +42,10 @@ class WelcomeController extends Controller
                 'min_description_char' => Setting::getValue('min_description_char', 25),
             ];
 
-            return view('welcome', compact('categories', 'settings'));
+            return view('welcome', compact('activeCompetitions', 'orphanCategories', 'settings'));
 
         } catch (\Exception $e) {
             Log::error('WelcomeController index error: ' . $e->getMessage());
-            // Fallback dengan data kosong jika ada error
             $categories = collect();
             $settings = [
                 'primary_color' => '#3b82f6',

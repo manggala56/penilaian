@@ -7,6 +7,7 @@ use App\Filament\Resources\PenilaianJuriResource\Pages;
 use App\Models\Competition;
 use App\Models\Participant;
 use App\Models\Evaluation;
+use App\Models\Juri;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -47,6 +48,8 @@ class PenilaianJuriResource extends Resource
     {
         $juriId = Auth::id();
 
+        $juriProfile =  Juri::where('user_id', $juriId)->with('categories')->first();
+
         $activeCompetitions = Competition::where('is_active', true)
                                         ->with('activeStage', 'categories')
                                         ->get();
@@ -60,22 +63,25 @@ class PenilaianJuriResource extends Resource
                 'category.competition.activeStage',
                 'evaluations' => fn ($query) => $query
                                     ->where('user_id', $juriId)
-                                    ->with('scores.aspect'), // <-- INI YANG PENTING
+                                    ->with('scores.aspect'),
             ]);
-
-        $participantQuery->where(function ($query) use ($activeCompetitions) {
-            foreach ($activeCompetitions as $competition) {
-                if ($competition->activeStage) {
-                    $stageOrder = $competition->activeStage->stage_order;
-                    $categoryIds = $competition->categories->pluck('id');
-
-                    $query->orWhere(function ($q) use ($categoryIds, $stageOrder) {
-                        $q->whereIn('category_id', $categoryIds)
-                        ->where('current_stage_order', $stageOrder);
-                    });
-                }
+            if ($juriProfile && !$juriProfile->can_judge_all_categories) {
+                $allowedCategoryIds = $juriProfile->categories->pluck('id')->toArray();
+                $participantQuery->whereIn('category_id', $allowedCategoryIds);
             }
-        });
+            $participantQuery->where(function ($query) use ($activeCompetitions) {
+                foreach ($activeCompetitions as $competition) {
+                    if ($competition->activeStage) {
+                        $stageOrder = $competition->activeStage->stage_order;
+                        $categoryIds = $competition->categories->pluck('id');
+
+                        $query->orWhere(function ($q) use ($categoryIds, $stageOrder) {
+                            $q->whereIn('category_id', $categoryIds)
+                                ->where('current_stage_order', $stageOrder);
+                        });
+                    }
+                }
+            });
 
         return $participantQuery;
     }
