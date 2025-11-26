@@ -17,7 +17,8 @@ class Participant extends Model
         'innovation_title',
         'innovation_description',
         'documents',
-        'is_approved'
+        'is_approved',
+        'current_stage_order'
     ];
 
     protected $casts = [

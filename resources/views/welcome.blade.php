@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Segoe+UI:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    @php
 
+    @endphp
     <style>
        :root {
         --highlight: {{ $settings['primary_color'] ?? '#0066cc' }};
@@ -93,7 +95,9 @@
             <ul id="navMenu">
                 <li><a href="#" class="active"><i class="fas fa-home"></i> Beranda</a></li>
                 <li><a href="#features"><i class="fas fa-info-circle"></i> Tentang</a></li>
-                <li><a href="#registration"><i class="fas fa-edit"></i> Pendaftaran</a></li>
+                @if($activeCompetitions->isNotEmpty())
+                    <li><a href="#registration"><i class="fas fa-edit"></i> Pendaftaran</a></li>
+                @endif
                 <li><a href="#contact"><i class="fas fa-phone"></i> Kontak</a></li>
             </ul>
         </nav>
@@ -105,7 +109,11 @@
     <div class="container hero-content">
         <h1 class="reveal-on-scroll">{{ $settings['competition_title'] ?? 'Lomba Inovasi Kabupaten Nganjuk 2024' }}</h1>
         <p class="reveal-on-scroll">{{ $settings['competition_theme'] ?? 'Inovasi sebagai sarana peningkatan peran potensi lokal untuk Nganjuk yang berdaya saing' }}</p>
+        @if($activeCompetitions->isNotEmpty())
         <a href="#registration" class="btn btn-primary reveal-on-scroll">Daftar Sekarang</a>
+        @else
+            <a href="#" class="btn btn-secondary reveal-on-scroll" style="background-color: grey; cursor: not-allowed;">Pendaftaran Ditutup</a>
+        @endif
     </div>
 </section>
 
@@ -150,6 +158,7 @@
 <!-- Form Pendaftaran -->
 <section class="registration" id="registration">
     <div class="container">
+        @if($activeCompetitions->isNotEmpty())
         <div class="section-title">
             <h2 class="reveal-on-scroll">Formulir Pendaftaran</h2>
             <p class="reveal-on-scroll">Isi formulir di bawah ini dengan lengkap</p>
@@ -256,6 +265,15 @@
                 </ul>
             </div>
         @endif
+        @else
+            <div class="section-title reveal-on-scroll" style="padding: 4rem 0; text-align: center;">
+                <div style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;">
+                    <i class="fas fa-calendar-times"></i>
+                </div>
+                <h2>Pendaftaran Ditutup</h2>
+                <p>Saat ini tidak ada periode lomba yang aktif atau waktu pendaftaran telah berakhir.<br>Nantikan informasi selanjutnya!</p>
+            </div>
+        @endif
     </div>
 </section>
 
@@ -271,13 +289,17 @@
             </div>
             <div class="footer-section reveal-on-scroll">
                 <h3><i class="fas fa-map-marker-alt"></i> Lokasi</h3>
-                <p>{{ $settings['registration_location'] ?? 'Bidang Litbang Bappeda Kab. Nganjuk' }}</p>
+                <a href="https://jendelalitbang.nganjukkab.go.id/#contact-area">{{ $settings['registration_location'] ?? 'Bidang Litbang Bappeda Kab. Nganjuk' }}
+
+                </a>
             </div>
             <div class="footer-section reveal-on-scroll">
                 <h3><i class="fas fa-link"></i> Tautan</h3>
                 <a href="#"><i class="fas fa-home"></i> Beranda</a>
                 <a href="#features"><i class="fas fa-info-circle"></i> Tentang</a>
+                @if($activeCompetitions->isNotEmpty())
                 <a href="#registration"><i class="fas fa-edit"></i> Pendaftaran</a>
+            @endif
             </div>
         </div>
         <div class="copyright">
@@ -301,6 +323,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Notifikasi Session (Tetap jalan di kondisi apapun)
     @if(session('success'))
         Swal.fire({
             icon: 'success',
@@ -319,183 +342,193 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     @endif
 
-    // === Variabel ===
-    const form          = document.getElementById('registrationForm');
-    const submitBtn     = document.getElementById('submitBtn');
-    const fileArea      = document.getElementById('fileUploadArea');
-    const fileInput     = document.getElementById('documents');
-    const fileList      = document.getElementById('fileList');
-    let selectedFiles   = [];
+    // 2. Logika Form Pendaftaran (HANYA JALAN JIKA FORM ADA)
+    const form = document.getElementById('registrationForm');
 
-    // === Drag & Drop + Click untuk upload file ===
-    fileArea.addEventListener('click', () => fileInput.click());
+    if (form) {
+        const submitBtn     = document.getElementById('submitBtn');
+        const fileArea      = document.getElementById('fileUploadArea');
+        const fileInput     = document.getElementById('documents');
+        const fileList      = document.getElementById('fileList');
+        let selectedFiles   = [];
 
-    ['dragover', 'dragenter'].forEach(ev => {
-        fileArea.addEventListener(ev, e => {
-            e.preventDefault();
-            fileArea.classList.add('dragover');
-        });
-    });
+        // === Event Listeners untuk File Upload ===
+        // Cek fileArea dulu untuk keamanan ekstra
+        if (fileArea && fileInput) {
+            fileArea.addEventListener('click', () => fileInput.click());
 
-    ['dragleave', 'drop'].forEach(ev => {
-        fileArea.addEventListener(ev, e => {
-            e.preventDefault();
-            fileArea.classList.remove('dragover');
-        });
-    });
+            ['dragover', 'dragenter'].forEach(ev => {
+                fileArea.addEventListener(ev, e => {
+                    e.preventDefault();
+                    fileArea.classList.add('dragover');
+                });
+            });
 
-    fileArea.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
-    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+            ['dragleave', 'drop'].forEach(ev => {
+                fileArea.addEventListener(ev, e => {
+                    e.preventDefault();
+                    fileArea.classList.remove('dragover');
+                });
+            });
 
-    function handleFiles(files) {
-        [...files].forEach(file => {
-            // Ukuran maks 10MB
-            if (file.size > 10 * 1024 * 1024) {
-                Swal.fire('Error', `File "${file.name}" terlalu besar! Maksimal 10MB.`, 'error');
+            fileArea.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+            fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+        }
+
+        function handleFiles(files) {
+            [...files].forEach(file => {
+                // Ukuran maks 10MB
+                if (file.size > 10 * 1024 * 1024) {
+                    Swal.fire('Error', `File "${file.name}" terlalu besar! Maksimal 10MB.`, 'error');
+                    return;
+                }
+
+                // Tipe file yang diizinkan
+                const allowed = ['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','image/jpeg','image/jpg','image/png','application/zip'];
+                if (!allowed.includes(file.type)) {
+                    Swal.fire('Error', `Tipe file "${file.name}" tidak diperbolehkan.`, 'error');
+                    return;
+                }
+
+                // Maksimal 5 file
+                if (selectedFiles.length >= 5) {
+                    Swal.fire('Peringatan', 'Maksimal 5 file saja!', 'warning');
+                    return;
+                }
+
+                // Cek duplikat (nama + ukuran)
+                const duplicate = selectedFiles.some(f => f.name === file.name && f.size === file.size);
+                if (!duplicate) {
+                    selectedFiles.push(file);
+                }
+            });
+
+            renderFileList();
+        }
+
+        function renderFileList() {
+            if (!fileList) return;
+            fileList.innerHTML = '';
+
+            if (selectedFiles.length === 0) {
+                fileArea.innerHTML = `
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Klik atau seret file ke sini</p>
+                    <p class="file-info">PDF, DOC, DOCX, JPG, PNG, ZIP (maks 10MB)</p>
+                    <input type="file" id="documents" name="documents[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" style="display:none;">
+                `;
                 return;
             }
 
-            // Tipe file yang diizinkan
-            const allowed = ['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','image/jpeg','image/jpg','image/png','application/zip'];
-            if (!allowed.includes(file.type)) {
-                Swal.fire('Error', `Tipe file "${file.name}" tidak diperbolehkan.`, 'error');
-                return;
-            }
-
-            // Maksimal 5 file
-            if (selectedFiles.length >= 5) {
-                Swal.fire('Peringatan', 'Maksimal 5 file saja!', 'warning');
-                return;
-            }
-
-            // Cek duplikat (nama + ukuran)
-            const duplicate = selectedFiles.some(f => f.name === file.name && f.size === file.size);
-            if (!duplicate) {
-                selectedFiles.push(file);
-            }
-        });
-
-        renderFileList();
-    }
-
-    function renderFileList() {
-        fileList.innerHTML = '';
-        if (selectedFiles.length === 0) {
             fileArea.innerHTML = `
-                <i class="fas fa-cloud-upload-alt"></i>
-                <p>Klik atau seret file ke sini</p>
-                <p class="file-info">PDF, DOC, DOCX, JPG, PNG, ZIP (maks 10MB)</p>
-                <input type="file" id="documents" name="documents[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" style="display:none;">
+                <i class="fas fa-check-circle" style="color:#22c55e;font-size:2rem;"></i>
+                <p>${selectedFiles.length} file dipilih</p>
+                <p class="file-info">Klik area ini untuk tambah/ganti</p>
             `;
-            return;
+
+            selectedFiles.forEach((file, i) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f1f5f9;margin:8px 0;border-radius:8px;';
+                div.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <i class="fas fa-file-alt"></i>
+                        <span style="font-size:0.9rem;">
+                            ${file.name} <small>(${(file.size/1024/1024).toFixed(2)} MB)</small>
+                        </span>
+                    </div>
+                    <button type="button" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1.2rem;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                div.querySelector('button').addEventListener('click', () => {
+                    selectedFiles.splice(i, 1);
+                    renderFileList();
+                });
+                fileList.appendChild(div);
+            });
         }
 
-        fileArea.innerHTML = `
-            <i class="fas fa-check-circle" style="color:#22c55e;font-size:2rem;"></i>
-            <p>${selectedFiles.length} file dipilih</p>
-            <p class="file-info">Klik area ini untuk tambah/ganti</p>
-        `;
+        // === Handle Submit ===
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
 
-        selectedFiles.forEach((file, i) => {
-            const div = document.createElement('div');
-            div.className = 'file-item';
-            div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f1f5f9;margin:8px 0;border-radius:8px;';
-            div.innerHTML = `
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <i class="fas fa-file-alt"></i>
-                    <span style="font-size:0.9rem;">
-                        ${file.name} <small>(${(file.size/1024/1024).toFixed(2)} MB)</small>
-                    </span>
-                </div>
-                <button type="button" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1.2rem;">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            div.querySelector('button').addEventListener('click', () => {
-                selectedFiles.splice(i, 1);
-                renderFileList();
+            const descInput = document.getElementById('innovation_description');
+            if (descInput) {
+                const desc = descInput.value.trim();
+                if (desc.length < 25) {
+                    Swal.fire('Peringatan', 'Deskripsi inovasi minimal 25 karakter!', 'warning');
+                    return;
+                }
+            }
+
+            if (selectedFiles.length === 0) {
+                Swal.fire('Peringatan', 'Harap upload minimal 1 dokumen pendukung!', 'warning');
+                return;
+            }
+
+            const formData = new FormData(form);
+            formData.delete('documents[]');
+            selectedFiles.forEach(file => formData.append('documents[]', file));
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+            }
+
+            fetch('{{ route("participant.register") }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            })
+            .then(data => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: data.message || 'Pendaftaran berhasil!',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    window.location.reload();
+                });
+            })
+            .catch(err => {
+                let message = 'Terjadi kesalahan saat mendaftar.';
+                if (err.message) message = err.message;
+                else if (err.errors) message = Object.values(err.errors)[0][0];
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: message,
+                    confirmButtonText: 'OK'
+                });
+            })
+            .finally(() => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';
+                }
             });
-            fileList.appendChild(div);
         });
     }
 
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        // Validasi deskripsi minimal 50 karakter
-        const desc = document.getElementById('innovation_description').value.trim();
-        if (desc.length < 25) {
-            Swal.fire('Peringatan', 'Deskripsi inovasi minimal 25 karakter!', 'warning');
-            return;
-        }
-
-        if (selectedFiles.length === 0) {
-            Swal.fire('Peringatan', 'Harap upload minimal 1 dokumen pendukung!', 'warning');
-            return;
-        }
-
-        const formData = new FormData(form);
-        formData.delete('documents[]');
-        selectedFiles.forEach(file => formData.append('documents[]', file));
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
-
-        fetch('{{ route("participant.register") }}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                // Laravel validation error atau custom JSON error
-                return response.json().then(err => Promise.reject(err));
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Sukses dari controller (return json success)
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil!',
-                text: data.message || 'Pendaftaran berhasil! Terima kasih telah mendaftar.',
-                confirmButtonText: 'OK'
-            }).then(() => {
-                window.location.reload();
-            });
-        })
-        .catch(err => {
-            // Tangkap semua error: validasi Laravel, email duplikat, IP limit, dll
-            let message = 'Terjadi kesalahan saat mendaftar. Silakan coba lagi.';
-
-            if (err.message) {
-                message = err.message;
-            } else if (err.errors) {
-                // Laravel validation errors
-                const firstError = Object.values(err.errors)[0][0];
-                message = firstError;
-            }
-
-            Swal.fire({
-                icon: 'error',
-                title: 'Gagal',
-                text: message,
-                confirmButtonText: 'OK'
-            });
-        })
-        .finally(() => {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';
+    // 3. UI Global (Menu & Scroll Animation) - INI HARUS DI LUAR IF(FORM)
+    // Agar menu dan animasi tetap jalan walau tidak ada form pendaftaran
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    if (mobileBtn) {
+        mobileBtn.addEventListener('click', () => {
+            document.getElementById('navMenu').classList.toggle('show');
         });
-    });
-
-    // === Mobile menu & reveal on scroll (tetap jalan) ===
-    document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
-        document.getElementById('navMenu').classList.toggle('show');
-    });
+    }
 
     const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {

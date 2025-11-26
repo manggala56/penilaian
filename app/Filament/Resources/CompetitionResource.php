@@ -104,6 +104,52 @@ class CompetitionResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('advance_stage')
+                ->label('Naikkan Tahap')
+                ->icon('heroicon-o-arrow-up-circle')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Naikkan Tahapan Lomba')
+                ->modalDescription('Aksi ini akan mengubah tahap aktif lomba dan menaikkan semua peserta di tahap saat ini ke tahap yang dipilih. Lanjutkan?')
+                ->form(function (Competition $record) {
+                    // Ambil tahap saat ini
+                    $currentStageId = $record->active_stage_id;
+                    return [
+                        Forms\Components\Select::make('new_stage_id')
+                            ->label('Pilih Tahap Selanjutnya')
+                            ->options($record->stages->pluck('name', 'id'))
+                            ->required()
+                            ->default($currentStageId),
+                    ];
+                })
+                ->action(function (Competition $record, array $data) {
+                    $newStageId = $data['new_stage_id'];
+
+                    // 1. Dapatkan object tahap baru untuk tahu urutannya (stage_order)
+                    $newStage = \App\Models\CompetitionStage::find($newStageId);
+
+                    if (!$newStage) return;
+
+                    // 2. Dapatkan order tahap saat ini (sebelum diupdate)
+                    $currentStageOrder = $record->activeStage?->stage_order ?? 1;
+
+                    // 3. Update Lomba ke tahap baru
+                    $record->update([
+                        'active_stage_id' => $newStageId
+                    ]);
+                    \App\Models\Participant::whereHas('category', function ($q) use ($record) {
+                            $q->where('competition_id', $record->id);
+                        })
+                        ->where('current_stage_order', '<', $newStage->stage_order) // Hanya yang levelnya di bawah target
+                        ->update([
+                            'current_stage_order' => $newStage->stage_order
+                        ]);
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Tahapan berhasil diperbarui')
+                        ->success()
+                        ->send();
+                }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

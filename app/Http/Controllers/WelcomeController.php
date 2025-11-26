@@ -18,15 +18,16 @@ class WelcomeController extends Controller
     public function index()
     {
         try {
-                $activeCompetitions = Competition::where('is_active', true)
-                    ->where('start_date', '<=', now())
-                    ->where('end_date', '>=', now())
-                    ->with('activeCategories')
-                    ->get();
-                $orphanCategories = collect();
-                if ($activeCompetitions->isEmpty()) {
-                    $orphanCategories = Category::where('is_active', true)->get();
-                }
+            $activeCompetitions = Competition::where('is_active', true)
+                ->where('start_date', '<=', now()) // Lomba sudah mulai
+                ->where('end_date', '>=', now())   // Lomba belum berakhir
+                ->with('activeCategories')
+                ->get();
+
+            $orphanCategories = collect();
+            if ($activeCompetitions->isEmpty()) {
+                $orphanCategories = Category::where('is_active', true)->get();
+            }
 
             $settings = [
                 'primary_color' => Setting::getValue('primary_color', '#3b82f6'),
