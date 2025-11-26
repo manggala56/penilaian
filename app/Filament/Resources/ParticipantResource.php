@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Models\Competition;
 use Illuminate\Support\HtmlString;
 use App\Models\Setting;
+use App\Models\User;
+use App\Models\Juri;
 use Filament\Support\Enums\Alignment;
 
 class ParticipantResource extends Resource
@@ -42,9 +44,31 @@ class ParticipantResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Informasi Peserta')
                     ->schema([
-                        Forms\Components\Select::make('category_id')
+                        Forms\Components\Select::make('competition_id')
+                            ->label('Lomba')
+                            ->options(Competition::all()->pluck('name', 'id'))
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('category_id', null))
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (Forms\Components\Select $component, $state, $record) {
+                                if ($record && $record->category) {
+                                    $component->state($record->category->competition_id);
+                                }
+                            }),
+                            Forms\Components\Select::make('category_id')
                             ->label('Kategori')
-                            ->relationship('category', 'name')
+                            ->relationship(
+                                name: 'category',
+                                titleAttribute: 'name',
+                                modifyQueryUsing: function (Builder $query, Forms\Get $get) {
+                                    $competitionId = $get('competition_id');
+                                    if ($competitionId) {
+                                        $query->where('competition_id', $competitionId);
+                                    }
+                                }
+                            )
+                            ->preload()
                             ->required(),
                         Forms\Components\TextInput::make('name')
                             ->label('Nama Lengkap')
@@ -151,8 +175,14 @@ class ParticipantResource extends Resource
                     })
                     ->visible(fn () => Auth::user()->role !== 'juri'),
             ])
-            ->defaultSort('category.name', 'asc') // Urutkan berdasarkan nama kategori
+            ->recordUrl(null)
+            ->recordAction('checkStatus')
+            ->defaultSort('category.name', 'asc')
             ->columns([
+                Tables\Columns\TextColumn::make('category.competition.name')
+                    ->label('Lomba')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
                     ->sortable()
@@ -161,6 +191,25 @@ class ParticipantResource extends Resource
                     ->label('Nama')
                     ->searchable()
                     ->sortable(),
+                    Tables\Columns\IconColumn::make('is_fully_evaluated')
+                    ->label('Status Juri')
+                    ->boolean()
+                    ->state(function (Participant $record) {
+                        $totalEligible = Juri::query()
+                        ->active() // Hanya juri aktif
+                        ->canJudgeCategory($record->category_id)
+                        ->count();
+                    if ($totalEligible === 0) return false;
+                    return $record->evaluations_count == $totalEligible;
+                })
+                    ->trueIcon('heroicon-o-check-badge')
+                    ->falseIcon('heroicon-o-clock')
+                    ->color(fn (bool $state) => $state ? 'success' : 'warning')
+                    ->tooltip(function (Participant $record) {
+                        $categoryId = $record->category_id;
+                        $totalEligible = Juri::active()->canJudgeCategory($categoryId)->count();
+                        return "Dinilai oleh {$record->evaluations_count} dari {$totalEligible} Juri yang bertugas";
+                    }),
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
                     ->searchable(),
@@ -193,7 +242,49 @@ class ParticipantResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('checkStatus')
+                ->label('Cek Status')
+                ->icon('heroicon-o-list-bullet')
+                ->color('secondary')
+                ->modalHeading(fn (Participant $record) => "Rangkuman Penilaian – {$record->name}")
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup')
+                ->modalContent(function (Participant $record) {
+                    $juris = \App\Models\Juri::with('user')
+                        ->active()
+                        ->canJudgeCategory($record->category_id)
+                        ->get();
+                    $evaluatedUserIds = $record->evaluations()->pluck('user_id')->toArray();
 
+                    $html = '<div class="overflow-hidden border border-gray-200 rounded-lg dark:border-white/10">';
+                    $html .= '<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">';
+                    $html .= '<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-white/5 dark:text-gray-200"><tr><th class="px-4 py-3 font-medium">Nama Juri</th><th class="px-4 py-3 font-medium">Status</th></tr></thead>';
+                    $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/5">';
+
+                    if ($juris->isEmpty()) {
+                        $html .= '<tr><td colspan="2" class="px-4 py-3 text-center text-gray-500 italic">Belum ada juri yang ditugaskan untuk kategori ini.</td></tr>';
+                    }
+
+                    foreach ($juris as $juri) {
+                        $hasRated = in_array($juri->user_id, $evaluatedUserIds);
+
+                        $statusBadge = $hasRated
+                            ? '<span class="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md ring-1 ring-inset ring-green-600/20 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/20">Sudah Menilai</span>'
+                            : '<span class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded-md ring-1 ring-inset ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20">Belum Menilai</span>';
+
+                        $bgRow = $hasRated ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-white/5';
+                        $juriName = $juri->user->name ?? 'Juri Tanpa Nama';
+
+                        $html .= "<tr class='{$bgRow} transition hover:bg-gray-50 dark:hover:bg-white/5'>";
+                        $html .= "<td class='px-4 py-3 font-medium text-gray-900 dark:text-white'>{$juriName}</td>";
+                        $html .= "<td class='px-4 py-3'>{$statusBadge}</td>";
+                        $html .= '</tr>';
+                    }
+
+                    $html .= '</tbody></table></div>';
+
+                    return new HtmlString($html);
+                }),
                 Tables\Actions\Action::make('viewPdf')
                     ->label('View PDF')
                     ->icon('heroicon-o-eye')
@@ -366,7 +457,7 @@ class ParticipantResource extends Resource
     }
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['category']);
+        $query = parent::getEloquentQuery()->with(['category.competition']);
         $user = Auth::user();
         if ($user && $user->role !== 'admin') {
             $activeCompetitions = Competition::where('is_active', true)

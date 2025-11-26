@@ -71,12 +71,12 @@ class TopParticipants extends BaseWidget
 
                         $myScore = $record->evaluations_avg_final_score;
                         $higherRankCount = Participant::query()
-                             ->where('category_id', $record->category_id) // <--- HANYA BANDINGKAN DENGAN KATEGORI SAMA
-                             ->whereHas('evaluations', fn($q) => $q->where('competition_stage_id', $stageId))
-                             ->withAvg(['evaluations' => fn($q) => $q->where('competition_stage_id', $stageId)], 'final_score')
-                             ->having('evaluations_avg_final_score', '>', $myScore) // Cari orang yang nilainya LEBIH TINGGI
-                             ->count();
-                        return '#' . ($higherRankCount + 1);
+                                ->where('category_id', $record->category_id)
+                                ->whereHas('evaluations', fn($q) => $q->where('competition_stage_id', $stageId))
+                                ->withAvg(['evaluations' => fn($q) => $q->where('competition_stage_id', $stageId)], 'final_score')
+                                ->having('evaluations_avg_final_score', '>', $myScore) // Cari orang yang nilainya LEBIH TINGGI
+                                ->count();
+                            return '#' . ($higherRankCount + 1);
                     }),
 
                 Tables\Columns\TextColumn::make('name')
@@ -106,14 +106,14 @@ class TopParticipants extends BaseWidget
                         if ($quota <= 0) return 'Menunggu';
                         $myScore = $record->evaluations_avg_final_score;
                         $higherRankCount = Participant::query()
-                             ->where('category_id', $record->category_id) // Per Kategori
-                             ->whereHas('evaluations', fn($q) => $q->where('competition_stage_id', $stageId))
-                             ->withAvg(['evaluations' => fn($q) => $q->where('competition_stage_id', $stageId)], 'final_score')
-                             ->having('evaluations_avg_final_score', '>', $myScore)
-                             ->count();
+                                ->where('category_id', $record->category_id)
+                                ->whereHas('evaluations', fn($q) => $q->where('competition_stage_id', $stageId))
+                                ->withAvg(['evaluations' => fn($q) => $q->where('competition_stage_id', $stageId)], 'final_score')
+                                ->having('evaluations_avg_final_score', '>', $myScore)
+                                ->count();
 
-                        $rankInCategory = $higherRankCount + 1;
-                        return $rankInCategory <= $quota ? 'Lolos' : 'Gugur';
+                            $rankInCategory = $higherRankCount + 1;
+                            return $rankInCategory <= $quota ? 'Lolos' : 'Gugur';
                     })
                     ->colors([
                         'success' => 'Lolos',
