@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Grouping\Group;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
@@ -35,9 +36,22 @@ class AspectResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Aspek Penilaian')
                     ->schema([
+                        Forms\Components\Select::make('competition_id')
+                            ->label('Lomba')
+                            ->options(\App\Models\Competition::all()->pluck('name', 'id'))
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('category_id', null)),
+
                         Forms\Components\Select::make('category_id')
                             ->label('Kategori')
-                            ->relationship('category', 'name')
+                            ->options(function (Forms\Get $get) {
+                                $competitionId = $get('competition_id');
+                                if ($competitionId) {
+                                    return \App\Models\Category::where('competition_id', $competitionId)->pluck('name', 'id');
+                                }
+                                return \App\Models\Category::all()->pluck('name', 'id');
+                            })
                             ->required()
                             ->live() // Tambahkan live() untuk real-time update
                             ->afterStateUpdated(function ($state, Forms\Set $set) {
@@ -122,6 +136,18 @@ class AspectResource extends Resource
                                " aspek)";
                     }),
             ])
+            ->groups([
+                Group::make('category.competition.name')
+                    ->label('Lomba')
+                    ->collapsible(),
+                Group::make('category.name')
+                    ->label('Kategori')
+                    ->collapsible()
+                    ->getTitleFromRecordUsing(fn (Aspect $record): string => 
+                        ($record->category->competition->name ?? 'Unknown Competition') . ' - ' . ($record->category->name ?? 'Unknown Category')
+                    ),
+            ])
+            ->defaultGroup('category.name')
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
                     ->relationship('category', 'name'),
@@ -177,7 +203,6 @@ class AspectResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('category_id')
             ->defaultSort('order');
     }
 

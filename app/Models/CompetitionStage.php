@@ -10,8 +10,15 @@ class CompetitionStage extends Model
     protected $fillable = [
         'competition_id',
         'name',
+        'start_date',
+        'end_date',
         'qualifying_count',
         'stage_order',
+    ];
+
+    protected $casts = [
+        'start_date' => 'date',
+        'end_date' => 'date',
     ];
 
     public function competition(): BelongsTo

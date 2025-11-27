@@ -9,14 +9,17 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class StatsOverview extends BaseWidget
 {
+    use InteractsWithPageFilters;
     protected static ?string $pollingInterval = '15s';
 
     protected function getStats(): array
     {
-        $activeCompetition = Competition::with('activeStage')
+        $competitionId = $this->filters['competition_id'] ?? null;
+        $activeCompetition = $competitionId ? Competition::with('activeStage')->find($competitionId) : Competition::with('activeStage')
             ->where('is_active', true)
             ->first();
 

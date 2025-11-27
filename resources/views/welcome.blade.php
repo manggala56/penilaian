@@ -194,31 +194,37 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="institution"><i class="fas fa-building"></i> Institusi</label>
-                    <input type="text" id="institution" name="institution" value="{{ old('institution') }}" placeholder="Instansi/Sekolah/Universitas (opsional)">
+                    <label for="institution"><i class="fas fa-building"></i> Institusi/Sekolah (Opsional)</label>
+                    <input type="text" id="institution" name="institution" value="{{ old('institution') }}" placeholder="Instansi/Sekolah/Universitas">
+                </div>
+
+                <div class="form-group @error('competition_id') has-error @enderror">
+                    <label for="competition_id"><i class="fas fa-trophy"></i> Lomba *</label>
+                    <select id="competition_id" name="competition_id" required>
+                        <option value="">-- Pilih Lomba --</option>
+                        @foreach($activeCompetitions as $competition)
+                            <option value="{{ $competition->id }}" {{ (old('competition_id') == $competition->id || $activeCompetitions->count() == 1) ? 'selected' : '' }}>
+                                {{ $competition->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('competition_id') <span class="error-text">{{ $message }}</span> @enderror
                 </div>
 
                 <div class="form-group @error('category') has-error @enderror">
                     <label for="category"><i class="fas fa-list"></i> Kategori Lomba *</label>
                     <select id="category" name="category" required>
+                        <option value="">-- Pilih Kategori --</option>
                         @if($activeCompetitions->isNotEmpty())
                             @foreach($activeCompetitions as $competition)
-                                <optgroup label="{{ $competition->name }}">
-                                    @foreach($competition->activeCategories as $category)
-                                        <option value="{{ $category->id }}" {{ old('category') == $category->id ? 'selected' : '' }}>
-                                            {{ $category->name }}
-                                        </option>
-                                    @endforeach
-                                </optgroup>
-                            @endforeach
-                        @elseif($orphanCategories->isNotEmpty())
-                            <optgroup label="Umum">
-                                @foreach($orphanCategories as $category)
-                                    <option value="{{ $category->id }}" {{ old('category') == $category->id ? 'selected' : '' }}>
+                                @foreach($competition->activeCategories as $category)
+                                    <option value="{{ $category->id }}" 
+                                            data-competition-id="{{ $competition->id }}"
+                                            {{ old('category') == $category->id ? 'selected' : '' }}>
                                         {{ $category->name }}
                                     </option>
                                 @endforeach
-                            </optgroup>
+                            @endforeach
                         @endif
                     </select>
                     @error('category') <span class="error-text">{{ $message }}</span> @enderror
@@ -536,6 +542,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
+
+    // === Handle Competition & Category Logic ===
+    const competitionSelect = document.getElementById('competition_id');
+    const categorySelect = document.getElementById('category');
+    
+    if (competitionSelect && categorySelect) {
+        const categoryOptions = Array.from(categorySelect.options);
+
+        function updateCategories() {
+            const selectedCompetitionId = competitionSelect.value;
+            
+            // Reset category selection
+            categorySelect.value = "";
+            
+            let visibleCount = 0;
+            let firstVisibleValue = "";
+
+            categoryOptions.forEach(option => {
+                if (option.value === "") return; // Skip placeholder
+
+                const competitionId = option.getAttribute('data-competition-id');
+                
+                if (!selectedCompetitionId || competitionId === selectedCompetitionId) {
+                    option.style.display = "";
+                    visibleCount++;
+                    if (visibleCount === 1) firstVisibleValue = option.value;
+                } else {
+                    option.style.display = "none";
+                }
+            });
+
+            // Auto-select if only 1 category available
+            if (visibleCount === 1) {
+                categorySelect.value = firstVisibleValue;
+            }
+        }
+
+        competitionSelect.addEventListener('change', updateCategories);
+        
+        // Run on load
+        updateCategories();
+    }
 });
 </script>
 </body>

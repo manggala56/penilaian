@@ -17,8 +17,11 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TopParticipantsExport;
 use Filament\Tables\Actions\Action;
 
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+
 class TopParticipants extends BaseWidget
 {
+    use InteractsWithPageFilters;
     protected int | string | array $columnSpan = 'full';
 
     // Judul Widget
@@ -35,8 +38,11 @@ class TopParticipants extends BaseWidget
             ->query(function () {
                 $filterState = $this->getTableFilterState('stage_id');
                 $selectedStageId = $filterState['value'] ?? null;
+                
+                $competitionId = $this->filters['competition_id'] ?? null;
+                $activeCompetition = $competitionId ? Competition::find($competitionId) : Competition::where('is_active', true)->first();
+
                 if (!$selectedStageId) {
-                    $activeCompetition = Competition::where('is_active', true)->first();
                     $selectedStageId = $activeCompetition?->active_stage_id;
                 }
 
@@ -142,14 +148,18 @@ class TopParticipants extends BaseWidget
                 SelectFilter::make('stage_id')
                     ->label('Pilih Tahapan')
                     ->options(function () {
-                        $activeCompetition = Competition::where('is_active', true)->first();
+                        $competitionId = $this->filters['competition_id'] ?? null;
+                        $activeCompetition = $competitionId ? Competition::find($competitionId) : Competition::where('is_active', true)->first();
+                        
                         if (!$activeCompetition) return [];
                         return CompetitionStage::where('competition_id', $activeCompetition->id)
                             ->orderBy('stage_order')
                             ->pluck('name', 'id');
                     })
                     ->default(function () {
-                        return Competition::where('is_active', true)->value('active_stage_id');
+                        $competitionId = $this->filters['competition_id'] ?? null;
+                        $activeCompetition = $competitionId ? Competition::find($competitionId) : Competition::where('is_active', true)->first();
+                        return $activeCompetition?->active_stage_id;
                     })
                     ->query(fn (Builder $query) => $query),
                     SelectFilter::make('urutan')

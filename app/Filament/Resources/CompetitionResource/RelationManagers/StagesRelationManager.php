@@ -8,6 +8,7 @@ use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Unique;
 
 class StagesRelationManager extends RelationManager
 {
@@ -33,6 +34,15 @@ class StagesRelationManager extends RelationManager
                     ->columnSpanFull()
                     ->nullable(),
 
+                Forms\Components\DatePicker::make('start_date')
+                    ->label('Tanggal Mulai')
+                    ->required(),
+
+                Forms\Components\DatePicker::make('end_date')
+                    ->label('Tanggal Selesai')
+                    ->required()
+                    ->afterOrEqual('start_date'),
+
                 Forms\Components\TextInput::make('qualifying_count')
                     ->label('Jumlah Lolos / Juara')
                     ->helperText('Jumlah peserta yang lolos dari tahap ini, atau jumlah juara jika ini tahap final.')
@@ -47,7 +57,10 @@ class StagesRelationManager extends RelationManager
                     ->required()
                     ->numeric()
                     ->minValue(1)
-                    ->default(1),
+                    ->default(1)
+                    ->unique(modifyRuleUsing: function (Unique $rule, StagesRelationManager $livewire) {
+                        return $rule->where('competition_id', $livewire->getOwnerRecord()->id);
+                    }, ignoreRecord: true),
 
             ]);
     }
@@ -64,6 +77,16 @@ class StagesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Tahap')
                     ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('start_date')
+                    ->label('Mulai')
+                    ->date()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('end_date')
+                    ->label('Selesai')
+                    ->date()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('qualifying_count')
