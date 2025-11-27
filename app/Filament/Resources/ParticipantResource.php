@@ -182,11 +182,13 @@ class ParticipantResource extends Resource
                 Tables\Columns\TextColumn::make('category.competition.name')
                     ->label('Lomba')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('md'),
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('md'),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')
                     ->searchable()
@@ -212,11 +214,13 @@ class ParticipantResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('email')
                     ->label('Email')
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('lg'),
                 Tables\Columns\TextColumn::make('innovation_title')
                     ->label('Judul Inovasi')
                     ->searchable()
-                    ->limit(50),
+                    ->limit(30)
+                    ->visibleFrom('sm'),
                 Tables\Columns\IconColumn::make('is_approved')
                     ->label('Status')
                     ->boolean(),

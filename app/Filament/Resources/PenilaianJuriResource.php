@@ -169,7 +169,8 @@ class PenilaianJuriResource extends Resource
                 })
                     ->label('Judul Inovasi')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('md'),
 
                 Tables\Columns\TextColumn::make('final_score')
                     ->label('Nilai Final')
@@ -291,11 +292,7 @@ class PenilaianJuriResource extends Resource
                             ->columnSpanFull(),
                     ];
                 }),
-            Tables\Actions\Action::make('download')
-            ->label('Download')
-            ->icon('heroicon-o-arrow-down-tray')
-            ->action(fn (Participant $record) => static::downloadDocuments($record))
-            ->color('success'),
+
             Action::make('viewEvaluationDetails')
                 ->label('Detail')
                 ->icon('heroicon-o-document-chart-bar')

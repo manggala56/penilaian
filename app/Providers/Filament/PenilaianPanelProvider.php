@@ -26,7 +26,7 @@ class PenilaianPanelProvider extends PanelProvider
             ->default()
             ->id('penilaian')
             ->path('penilaian')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\CustomLogin::class)
             ->colors([
                 'primary' => Color::Blue,
             ])

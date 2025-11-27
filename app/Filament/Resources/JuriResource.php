@@ -158,7 +158,8 @@ class JuriResource extends Resource
                         $record->can_judge_all_categories
                             ? 'Semua Kategori'
                             : '(' . $record->categories_count . ' kategori)'
-                    ),
+                    )
+                    ->visibleFrom('md'),
 
                 Tables\Columns\IconColumn::make('can_judge_all_categories')
                     ->label('Universal')
@@ -167,13 +168,15 @@ class JuriResource extends Resource
                         $record->can_judge_all_categories
                             ? 'Dapat menilai semua kategori'
                             : 'Hanya menilai kategori tertentu'
-                    ),
+                    )
+                    ->visibleFrom('lg'),
 
                 Tables\Columns\TextColumn::make('expertise')
                     ->label('Keahlian')
                     ->searchable()
                     ->limit(30)
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visibleFrom('xl'),
 
                 Tables\Columns\TextColumn::make('max_evaluations')
                     ->label('Maks Nilai')
@@ -181,7 +184,8 @@ class JuriResource extends Resource
                     ->sortable()
                     ->formatStateUsing(fn ($state): string =>
                         $state ?: 'Tidak Terbatas'
-                    ),
+                    )
+                    ->visibleFrom('lg'),
 
                 Tables\Columns\TextColumn::make('current_evaluations_count')
                     ->label('Sudah Dinilai')
@@ -238,6 +242,34 @@ class JuriResource extends Resource
                     ->visible(fn (): bool =>
                         class_exists(EvaluationResource::class)
                     ),
+
+                Tables\Actions\Action::make('changePassword')
+                    ->label('Ganti Password')
+                    ->icon('heroicon-o-key')
+                    ->color('warning')
+                    ->form([
+                        Forms\Components\TextInput::make('new_password')
+                            ->label('Password Baru')
+                            ->password()
+                            ->required()
+                            ->minLength(8)
+                            ->rule('confirmed'),
+                        Forms\Components\TextInput::make('new_password_confirmation')
+                            ->label('Konfirmasi Password Baru')
+                            ->password()
+                            ->required()
+                            ->minLength(8),
+                    ])
+                    ->action(function (Juri $record, array $data) {
+                        $record->user->update([
+                            'password' => Hash::make($data['new_password']),
+                        ]);
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Password berhasil diubah')
+                            ->success()
+                            ->send();
+                    }),
 
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

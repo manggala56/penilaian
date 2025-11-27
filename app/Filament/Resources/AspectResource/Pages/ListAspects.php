@@ -19,20 +19,4 @@ class ListAspects extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
-
-    public function getTabs(): array
-    {
-        $tabs = [
-            'all' => Tab::make('Semua'),
-        ];
-
-        $competitions = Competition::all();
-
-        foreach ($competitions as $competition) {
-            $tabs[$competition->id] = Tab::make($competition->name)
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('category', fn ($q) => $q->where('competition_id', $competition->id)));
-        }
-
-        return $tabs;
-    }
 }

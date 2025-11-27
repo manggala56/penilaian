@@ -61,6 +61,28 @@ class AspectResource extends Resource
                                     $set('order', $nextOrder);
                                 }
                             }),
+                        Forms\Components\Placeholder::make('weight_quota')
+                            ->label('Kuota Bobot')
+                            ->content(function (Forms\Get $get, $record) {
+                                $categoryId = $get('category_id');
+                                if (!$categoryId) {
+                                    return 'Pilih kategori terlebih dahulu';
+                                }
+
+                                $totalWeight = Aspect::where('category_id', $categoryId)
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                                    ->sum('weight');
+                                
+                                $remaining = 100 - $totalWeight;
+                                $color = $remaining < 0 ? 'text-danger-600' : 'text-success-600';
+
+                                return new \Illuminate\Support\HtmlString(
+                                    "Total saat ini: <strong>{$totalWeight}%</strong><br>" .
+                                    "Sisa kuota: <strong class='{$color}'>{$remaining}%</strong>"
+                                );
+                            })
+                            ->columnSpanFull(),
+
                         Forms\Components\TextInput::make('name')
                             ->label('Nama Aspek')
                             ->required()
@@ -74,7 +96,25 @@ class AspectResource extends Resource
                             ->minValue(0)
                             ->maxValue(100)
                             ->step(0.01)
-                            ->required(),
+                            ->required()
+                            ->live()
+                            ->rules([
+                                function (Forms\Get $get, $record) {
+                                    return function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                                        $categoryId = $get('category_id');
+                                        if (!$categoryId) return;
+
+                                        $totalWeight = Aspect::where('category_id', $categoryId)
+                                            ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                                            ->sum('weight');
+                                        
+                                        if (($totalWeight + $value) > 100) {
+                                            $remaining = 100 - $totalWeight;
+                                            $fail("Total bobot melebihi 100%. Sisa kuota: {$remaining}%");
+                                        }
+                                    };
+                                },
+                            ]),
                         Forms\Components\TextInput::make('max_score')
                             ->label('Nilai Maksimal')
                             ->numeric()
@@ -113,7 +153,8 @@ class AspectResource extends Resource
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('md'),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Aspek')
                     ->searchable()
@@ -125,7 +166,8 @@ class AspectResource extends Resource
                 Tables\Columns\TextColumn::make('max_score')
                     ->label('Nilai Maks')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->visibleFrom('sm'),
                 Tables\Columns\TextColumn::make('order')
                     ->label('Urutan')
                     ->numeric()
@@ -134,7 +176,8 @@ class AspectResource extends Resource
                         return "{$record->order} (dari " .
                                Aspect::where('category_id', $record->category_id)->count() .
                                " aspek)";
-                    }),
+                    })
+                    ->visibleFrom('lg'),
             ])
             ->groups([
                 Group::make('category.competition.name')
@@ -149,9 +192,35 @@ class AspectResource extends Resource
             ])
             ->defaultGroup('category.name')
             ->filters([
-                Tables\Filters\SelectFilter::make('category')
-                    ->relationship('category', 'name'),
-            ])
+                Tables\Filters\Filter::make('filter')
+                    ->form([
+                        Forms\Components\Select::make('competition_id')
+                            ->label('Lomba')
+                            ->options(\App\Models\Competition::all()->pluck('name', 'id'))
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('category_id', null)),
+                        Forms\Components\Select::make('category_id')
+                            ->label('Kategori')
+                            ->options(function (Forms\Get $get) {
+                                $competitionId = $get('competition_id');
+                                if ($competitionId) {
+                                    return \App\Models\Category::where('competition_id', $competitionId)->pluck('name', 'id');
+                                }
+                                return \App\Models\Category::all()->pluck('name', 'id');
+                            }),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['competition_id'],
+                                fn (Builder $query, $competitionId) => $query->whereHas('category', fn ($q) => $q->where('competition_id', $competitionId))
+                            )
+                            ->when(
+                                $data['category_id'],
+                                fn (Builder $query, $categoryId) => $query->where('category_id', $categoryId)
+                            );
+                    })
+            ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->actions([
                 Tables\Actions\Action::make('moveUp')
                     ->label('Naik')

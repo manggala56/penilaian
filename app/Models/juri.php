@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Juri extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'juri';
 
     protected $fillable = [
@@ -145,6 +148,11 @@ class Juri extends Model
 
         static::deleting(function ($juri) {
             $juri->categories()->detach();
+            
+            // Delete associated user (Soft Delete)
+            if ($juri->user) {
+                $juri->user->delete();
+            }
         });
     }
 

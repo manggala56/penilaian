@@ -33,18 +33,41 @@ class StatsOverview extends BaseWidget
         $activeStage = $activeCompetition->activeStage;
         $stageId = $activeStage->id;
         $competitionId = $activeCompetition->id;
-        $evaluatedCount = Evaluation::where('competition_stage_id', $stageId)
-            ->distinct('participant_id')
-            ->count();
-        $unevaluatedCount = Participant::query()
-        ->whereHas('category', function (Builder $query) use ($competitionId) {
-            $query->where('competition_id', $competitionId);
-        })
-        ->where('is_approved', true)
-        ->whereDoesntHave('evaluations', function (Builder $query) use ($stageId) {
-            $query->where('competition_stage_id', $stageId);
-        })
-        ->count();
+
+        // Get all approved participants for this competition
+        $participants = Participant::query()
+            ->whereHas('category', fn ($q) => $q->where('competition_id', $competitionId))
+            ->where('is_approved', true)
+            ->with(['category', 'evaluations' => fn ($q) => $q->where('competition_stage_id', $stageId)])
+            ->get();
+
+        // Get all active judges
+        $judges = \App\Models\Juri::with('categories')->where('is_active', true)->get();
+        $universalJudgesCount = $judges->where('can_judge_all_categories', true)->count();
+
+        $evaluatedCount = 0;
+
+        foreach ($participants as $participant) {
+            // Count specific judges for this participant's category
+            $specificJudgesCount = $judges->filter(function ($juri) use ($participant) {
+                return !$juri->can_judge_all_categories && 
+                       $juri->categories->contains('id', $participant->category_id);
+            })->count();
+
+            $totalRequiredJudges = $universalJudgesCount + $specificJudgesCount;
+
+            // Count unique judges who have evaluated this participant in this stage
+            $actualEvaluationsCount = $participant->evaluations
+                ->where('competition_stage_id', $stageId)
+                ->unique('user_id')
+                ->count();
+
+            if ($totalRequiredJudges > 0 && $actualEvaluationsCount >= $totalRequiredJudges) {
+                $evaluatedCount++;
+            }
+        }
+
+        $unevaluatedCount = $participants->count() - $evaluatedCount;
         $qualifyingCount = $activeStage->qualifying_count;
 
         return [

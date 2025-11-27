@@ -21,7 +21,17 @@ class Dashboard extends BaseDashboard
                     ->schema([
                         Select::make('competition_id')
                             ->label('Pilih Lomba')
-                            ->options(\App\Models\Competition::pluck('name', 'id'))
+                            ->options(function () {
+                                $user = auth()->user();
+                                if ($user->role === 'juri') {
+                                    $juri = \App\Models\Juri::where('user_id', $user->id)->first();
+                                    if ($juri && !$juri->can_judge_all_categories) {
+                                        $competitionIds = $juri->categories->pluck('competition_id')->unique();
+                                        return \App\Models\Competition::whereIn('id', $competitionIds)->pluck('name', 'id');
+                                    }
+                                }
+                                return \App\Models\Competition::pluck('name', 'id');
+                            })
                             ->default(fn () => \App\Models\Competition::where('is_active', true)->value('id'))
                             ->searchable()
                             ->preload(),
