@@ -22,6 +22,7 @@ use Filament\Forms\Components\FileUpload;
 use Illuminate\Support\HtmlString;
 use App\Models\Setting;
 use Filament\Support\Enums\Alignment;
+use Filament\Navigation\NavigationItem;
 
 class PenilaianJuriResource extends Resource
 {
@@ -31,6 +32,49 @@ class PenilaianJuriResource extends Resource
     protected static ?string $modelLabel = 'Peserta';
     protected static ?string $pluralModelLabel = 'Daftar Peserta untuk Dinilai';
     protected static ?int $navigationSort = 1;
+
+    public static function getNavigationItems(): array
+    {
+        if (Auth::user()->role !== 'juri') {
+            return [];
+        }
+
+        $juriId = Auth::id();
+        $juriProfile = Juri::where('user_id', $juriId)->with('categories')->first();
+
+        if (!$juriProfile) {
+            return [];
+        }
+
+        $activeCompetitions = Competition::where('is_active', true)
+            ->with(['categories' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->get();
+
+        $items = [];
+
+        foreach ($activeCompetitions as $competition) {
+            foreach ($competition->categories as $category) {
+                // Check if Juri can judge this category
+                if ($juriProfile->can_judge_all_categories || $juriProfile->categories->contains('id', $category->id)) {
+                    $items[] = NavigationItem::make($category->name)
+                        ->group($competition->name)
+                        ->icon('heroicon-o-tag')
+                        ->isActiveWhen(fn () => request()->input('tableFilters.category.value') == $category->id)
+                        ->url(static::getUrl('index', [
+                            'tableFilters' => [
+                                'category' => [
+                                    'value' => $category->id,
+                                ],
+                            ],
+                        ]));
+                }
+            }
+        }
+
+        return $items;
+    }
     public static function canViewAny(): bool
     {
         return Auth::user()->role === 'juri';
