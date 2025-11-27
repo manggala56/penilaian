@@ -11,9 +11,11 @@ use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Resources\EvaluationResource;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class TabelBelumDinilai extends BaseWidget
 {
+    use InteractsWithPageFilters;
     protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'Menunggu Penilaian';
     protected static ?int $sort = 3;
@@ -63,6 +65,13 @@ class TabelBelumDinilai extends BaseWidget
         $juriProfile = Juri::where('user_id', $juriId)->with('categories')->first();
 
         $activeCompetitions = Competition::where('is_active', true)->with('activeStage', 'categories')->get();
+
+        // Filter berdasarkan dashboard filter
+        $competitionId = $this->filters['competition_id'] ?? null;
+        if ($competitionId) {
+            $activeCompetitions = $activeCompetitions->where('id', $competitionId);
+        }
+
         if ($activeCompetitions->isEmpty()) return Participant::query()->whereRaw('1 = 0');
 
         $query = Participant::query();

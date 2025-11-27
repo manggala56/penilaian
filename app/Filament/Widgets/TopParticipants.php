@@ -46,6 +46,14 @@ class TopParticipants extends BaseWidget
                     $selectedStageId = $activeCompetition?->active_stage_id;
                 }
 
+                // Jika filter kompetisi dipilih, pastikan stage yang dipilih milik kompetisi tersebut
+                if ($competitionId && $activeCompetition && $selectedStageId) {
+                    $stage = CompetitionStage::find($selectedStageId);
+                    if ($stage && $stage->competition_id != $competitionId) {
+                        $selectedStageId = $activeCompetition->active_stage_id;
+                    }
+                }
+
                 if (!$selectedStageId) {
                     return Participant::query()->whereNull('id');
                 }

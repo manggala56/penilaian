@@ -10,9 +10,11 @@ use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Resources\EvaluationResource; // Pastikan import ini ada
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class TabelSudahDinilai extends BaseWidget
 {
+    use InteractsWithPageFilters;
     protected int | string | array $columnSpan = 'full'; // Tampilan penuh
     protected static ?string $heading = 'Data Sudah Dinilai';
     protected static ?int $sort = 2; // Urutan tampilan widget
@@ -72,6 +74,13 @@ class TabelSudahDinilai extends BaseWidget
     private function getBaseParticipantQuery(): Builder
     {
         $activeCompetitions = Competition::where('is_active', true)->with('activeStage', 'categories')->get();
+        
+        // Filter berdasarkan dashboard filter
+        $competitionId = $this->filters['competition_id'] ?? null;
+        if ($competitionId) {
+            $activeCompetitions = $activeCompetitions->where('id', $competitionId);
+        }
+
         if ($activeCompetitions->isEmpty()) return Participant::query()->whereRaw('1 = 0');
 
         return Participant::query()->where(function ($q) use ($activeCompetitions) {
