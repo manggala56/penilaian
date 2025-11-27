@@ -303,7 +303,7 @@
             </div>
         </div>
         <div class="copyright">
-            <p>&copy; {{ date('Y') }} {{ $settings['competition_title'] ?? 'Lomba Inovasi Kabupaten Nganjuk' }}</p>
+            <p>&copy; {{ date('Y') }} Bappeda Kabupaten Nganjuk</p>
             <p>Info lengkap: <a href="https://jendelalitbang.nganjukkab.go.id/litbang/berita" target="_blank">jendelalitbang.nganjukkab.go.id</a></p>
             <p>Contact Person: {{ $settings['contact_person'] ?? 'YULI' }} - WA: {{ $settings['contact_phone'] ?? '081335109003' }}</p>
         </div>
