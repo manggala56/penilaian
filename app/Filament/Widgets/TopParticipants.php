@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
+use Illuminate\Support\HtmlString;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\TopParticipantsExport;
+use Filament\Tables\Actions\Action;
 
 class TopParticipants extends BaseWidget
 {
@@ -81,7 +85,10 @@ class TopParticipants extends BaseWidget
 
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Peserta')
-                    ->description(fn (Participant $record) => $record->institution)
+                    ->description(fn (Participant $record) => new HtmlString(
+                        ($record->innovation_title ? '<div class="font-medium text-xs">' . $record->innovation_title . '</div>' : '') .
+                        '<div class="text-xs text-gray-500">' . $record->institution . '</div>'
+                    ))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori')
@@ -160,6 +167,17 @@ class TopParticipants extends BaseWidget
 
             ])
 
-            ->paginated([10, 25, 50, 100, 'all']);
+            ->paginated([10, 25, 50, 100, 'all'])
+            ->headerActions([
+                Action::make('export')
+                    ->label('Export Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->action(function ($livewire) {
+                        $filterState = $livewire->getTableFilterState('stage_id');
+                        $stageId = $filterState['value'] ?? Competition::where('is_active', true)->value('active_stage_id');
+                        
+                        return Excel::download(new TopParticipantsExport($stageId), 'peringkat-peserta.xlsx');
+                    }),
+            ]);
     }
 }
