@@ -124,29 +124,72 @@ class CompetitionResource extends Resource
                 })
                 ->action(function (Competition $record, array $data) {
                     $newStageId = $data['new_stage_id'];
-
-                    // 1. Dapatkan object tahap baru untuk tahu urutannya (stage_order)
                     $newStage = \App\Models\CompetitionStage::find($newStageId);
 
                     if (!$newStage) return;
 
-                    // 2. Dapatkan order tahap saat ini (sebelum diupdate)
-                    $currentStageOrder = $record->activeStage?->stage_order ?? 1;
+                    $currentStage = $record->activeStage;
+                    
+                    // Jika tidak ada tahap aktif sebelumnya (awal lomba), set semua peserta ke tahap baru
+                    if (!$currentStage) {
+                        $record->update(['active_stage_id' => $newStageId]);
+                        
+                        // Update semua peserta di lomba ini ke tahap pertama
+                        \App\Models\Participant::whereHas('category', fn($q) => $q->where('competition_id', $record->id))
+                            ->update(['current_stage_order' => $newStage->stage_order]);
 
-                    // 3. Update Lomba ke tahap baru
-                    $record->update([
-                        'active_stage_id' => $newStageId
-                    ]);
-                    \App\Models\Participant::whereHas('category', function ($q) use ($record) {
-                            $q->where('competition_id', $record->id);
-                        })
-                        ->where('current_stage_order', '<', $newStage->stage_order) // Hanya yang levelnya di bawah target
-                        ->update([
-                            'current_stage_order' => $newStage->stage_order
-                        ]);
+                        \Filament\Notifications\Notification::make()
+                            ->title('Lomba dimulai')
+                            ->body('Semua peserta masuk ke tahap awal.')
+                            ->success()
+                            ->send();
+                        return;
+                    }
+
+                    // Logika Eliminasi / Promosi
+                    $quota = $currentStage->qualifying_count;
+
+                    // Jika ada kuota (misal: 10 besar), maka kita filter
+                    if ($quota > 0) {
+                        // Iterasi per kategori karena kuota berlaku per kategori
+                        foreach ($record->categories as $category) {
+                            // Ambil peserta di kategori ini yang ada di tahap saat ini
+                            $participants = \App\Models\Participant::query()
+                                ->where('category_id', $category->id)
+                                ->where('current_stage_order', $currentStage->stage_order)
+                                ->withAvg(['evaluations' => fn($q) => $q->where('competition_stage_id', $currentStage->id)], 'final_score')
+                                ->orderByDesc('evaluations_avg_final_score')
+                                ->get();
+
+                            // Ambil N terbaik
+                            $qualified = $participants->take($quota);
+
+                            // Update status mereka ke tahap berikutnya
+                            foreach ($qualified as $p) {
+                                $p->update(['current_stage_order' => $newStage->stage_order]);
+                            }
+                            
+                            // Sisanya tetap di stage_order lama (artinya gugur/tidak lanjut)
+                        }
+                        
+                        $msg = "Tahapan diperbarui. Peserta disaring berdasarkan kuota {$quota} besar per kategori.";
+                    } else {
+                        // Jika kuota 0 atau null, berarti lolos semua (non-eliminasi)
+                         \App\Models\Participant::whereHas('category', fn($q) => $q->where('competition_id', $record->id))
+                            ->where('current_stage_order', $currentStage->stage_order)
+                            ->update([
+                                'current_stage_order' => $newStage->stage_order
+                            ]);
+                            
+                        $msg = "Tahapan diperbarui. Semua peserta lanjut ke tahap berikutnya.";
+                    }
+
+                    // Update Lomba ke tahap baru
+                    $record->update(['active_stage_id' => $newStageId]);
 
                     \Filament\Notifications\Notification::make()
-                        ->title('Tahapan berhasil diperbarui')
+                        ->title('Tahapan Berhasil Diperbarui')
+                        ->body($msg)
                         ->success()
                         ->send();
                 }),

@@ -160,9 +160,9 @@ class PenilaianJuriResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('category.name')
-                    ->label('Kategori')
-                    ->sortable(),
+
+
+
                 Tables\Columns\TextColumn::make('innovation_title')
                 ->description(function (Participant $record): string {
                     return $record->innovation_description ?? 'Tidak ada deskripsi';
@@ -409,7 +409,8 @@ class PenilaianJuriResource extends Resource
                         ]);
                     }
                 }),
-            ])
+            ], position: \Filament\Tables\Enums\ActionsPosition::BeforeCells)
+
             ->description(function() {
                 $status = Setting::getJudgingStatus();
                 if ($status === 'not_started') {
