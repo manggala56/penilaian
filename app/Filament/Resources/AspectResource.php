@@ -282,9 +282,7 @@ class AspectResource extends Resource
                     ),
 
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Arsipkan')
-                    ->modalDescription('Apakah Anda yakin ingin mengarsipkan aspek ini? Aspek yang diarsipkan tidak akan terlihat oleh Juri.'),
+                Tables\Actions\DeleteAction::make(),
                 Tables\Actions\RestoreAction::make(),
                 Tables\Actions\ForceDeleteAction::make(),
             ])
@@ -340,6 +338,7 @@ class AspectResource extends Resource
 
     public static function canForceDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return Auth::user()->role === 'superadmin';
+        // Allow admins to permanently delete aspects if they wish
+        return in_array(Auth::user()->role, ['superadmin', 'admin']);
     }
 }
