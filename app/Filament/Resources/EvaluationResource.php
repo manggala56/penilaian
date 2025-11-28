@@ -301,4 +301,12 @@ class EvaluationResource extends Resource
     {
         return Auth::user()->role == 'superadmin';
     }
+
+    public static function getSoftDeletingScope(): ?string
+    {
+        if (Auth::user()->role === 'superadmin') {
+            return \Illuminate\Database\Eloquent\SoftDeletingScope::class;
+        }
+        return null;
+    }
 }

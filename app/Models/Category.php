@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $fillable = [
         'competition_id',
         'name',
@@ -19,6 +21,29 @@ class Category extends Model
     protected $casts = [
         'is_active' => 'boolean'
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleted(function ($category) {
+            $category->participants->each(function ($participant) {
+                $participant->delete();
+            });
+            $category->aspects->each(function ($aspect) {
+                $aspect->delete();
+            });
+        });
+
+        static::restored(function ($category) {
+            $category->participants()->withTrashed()->get()->each(function ($participant) {
+                $participant->restore();
+            });
+            $category->aspects()->withTrashed()->get()->each(function ($aspect) {
+                $aspect->restore();
+            });
+        });
+    }
 
     public function competition(): BelongsTo
     {

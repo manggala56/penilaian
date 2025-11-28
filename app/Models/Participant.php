@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Participant extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $fillable = [
         'category_id',
         'name',
@@ -26,6 +28,21 @@ class Participant extends Model
         'is_approved' => 'boolean'
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleted(function ($participant) {
+            $participant->evaluations()->delete();
+            $participant->uploadHistories()->delete();
+        });
+
+        static::restored(function ($participant) {
+            $participant->evaluations()->withTrashed()->restore();
+            $participant->uploadHistories()->withTrashed()->restore();
+        });
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
@@ -34,6 +51,11 @@ class Participant extends Model
     public function evaluations(): HasMany
     {
         return $this->hasMany(Evaluation::class);
+    }
+
+    public function uploadHistories(): HasMany
+    {
+        return $this->hasMany(UploadHistory::class);
     }
 
     public function getFinalScoreAttribute(): ?float

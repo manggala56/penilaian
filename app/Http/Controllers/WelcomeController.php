@@ -101,10 +101,10 @@ class WelcomeController extends Controller
                 'errors'  => $validator->errors()
             ], 422);
         }
-        if (Participant::where('email', $request->email)->exists()) {
+        if (Participant::where('email', $request->email)->whereNull('deleted_at')->exists()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Email ini sudah terdaftar sebagai peserta. Gunakan email lain.'
+                'message' => 'Email ini sudah terdaftar sebagai peserta aktif. Gunakan email lain.'
             ], 422);
         }
         // Cek IP limit (1x dalam 24 jam)

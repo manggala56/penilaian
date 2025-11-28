@@ -186,34 +186,51 @@ class AspectResource extends Resource
                 Group::make('category.name')
                     ->label('Kategori')
                     ->collapsible()
-                    ->getTitleFromRecordUsing(fn (Aspect $record): string => 
-                        ($record->category->competition->name ?? 'Unknown Competition') . ' - ' . ($record->category->name ?? 'Unknown Category')
-                    ),
+                    ->getTitleFromRecordUsing(function (Aspect $record): string {
+                        $category = $record->category()->withTrashed()->first();
+                        $competition = $category?->competition()->withTrashed()->first();
+                        
+                        return ($competition?->name ?? 'Unknown Competition') . ' - ' . ($category?->name ?? 'Unknown Category');
+                    }),
             ])
             ->defaultGroup('category.name')
             ->filters([
+                // Tables\Filters\TrashedFilter::make(), // Removed manual filter, let SoftDeletingScope handle it
                 Tables\Filters\Filter::make('filter')
                     ->form([
                         Forms\Components\Select::make('competition_id')
                             ->label('Lomba')
-                            ->options(\App\Models\Competition::all()->pluck('name', 'id'))
+                            ->options(function () {
+                                $query = \App\Models\Competition::query();
+                                if (Auth::user()->role === 'superadmin') {
+                                    $query->withTrashed();
+                                }
+                                return $query->pluck('name', 'id');
+                            })
                             ->live()
                             ->afterStateUpdated(fn (Forms\Set $set) => $set('category_id', null)),
                         Forms\Components\Select::make('category_id')
                             ->label('Kategori')
                             ->options(function (Forms\Get $get) {
                                 $competitionId = $get('competition_id');
-                                if ($competitionId) {
-                                    return \App\Models\Category::where('competition_id', $competitionId)->pluck('name', 'id');
+                                $query = \App\Models\Category::query();
+                                
+                                if (Auth::user()->role === 'superadmin') {
+                                    $query->withTrashed();
                                 }
-                                return \App\Models\Category::all()->pluck('name', 'id');
+
+                                if ($competitionId) {
+                                    $query->where('competition_id', $competitionId);
+                                }
+                                
+                                return $query->pluck('name', 'id');
                             }),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
                                 $data['competition_id'],
-                                fn (Builder $query, $competitionId) => $query->whereHas('category', fn ($q) => $q->where('competition_id', $competitionId))
+                                fn (Builder $query, $competitionId) => $query->whereHas('category', fn ($q) => $q->withTrashed()->where('competition_id', $competitionId))
                             )
                             ->when(
                                 $data['category_id'],
@@ -265,14 +282,38 @@ class AspectResource extends Resource
                     ),
 
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->label('Arsipkan')
+                    ->modalDescription('Apakah Anda yakin ingin mengarsipkan aspek ini? Aspek yang diarsipkan tidak akan terlihat oleh Juri.'),
+                Tables\Actions\RestoreAction::make(),
+                Tables\Actions\ForceDeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ]),
             ])
             ->defaultSort('order');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        // Ensure we only show aspects that have active categories
+        // Unless we are explicitly looking at trashed items (handled by SoftDeletingScope)
+        
+        // Fix for "Active Aspect but Deleted Category" (Orphaned)
+        // We want to hide these from the default view.
+        $query->whereHas('category', function ($q) {
+            // This closure filters the relationship. 
+            // By default whereHas checks for non-deleted related models if SoftDeletes is on.
+            // So this line effectively hides aspects with deleted categories.
+        });
+
+        return $query;
     }
 
     public static function getPages(): array
@@ -282,5 +323,23 @@ class AspectResource extends Resource
             'create' => Pages\CreateAspect::route('/create'),
             'edit' => Pages\EditAspect::route('/{record}/edit'),
         ];
+    }
+
+    public static function getSoftDeletingScope(): ?string
+    {
+        if (Auth::user()->role === 'superadmin') {
+            return \Illuminate\Database\Eloquent\SoftDeletingScope::class;
+        }
+        return null;
+    }
+
+    public static function canRestore(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return Auth::user()->role === 'superadmin';
+    }
+
+    public static function canForceDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return Auth::user()->role === 'superadmin';
     }
 }

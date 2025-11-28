@@ -117,6 +117,72 @@
     </div>
 </section>
 
+<!-- Daftar Lomba -->
+@if($activeCompetitions->isNotEmpty())
+<section class="competitions-section" id="competitions" style="padding: 5rem 0; background-color: #f8fafc;">
+    <div class="container">
+        <div class="section-title">
+            <h2 class="reveal-on-scroll">Daftar Lomba Aktif</h2>
+            <p class="reveal-on-scroll">Pilih lomba yang sesuai dengan inovasi Anda</p>
+        </div>
+        
+        <div class="competitions-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 3rem;">
+            @foreach($activeCompetitions as $competition)
+            <div class="competition-card reveal-on-scroll" style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); transition: transform 0.3s ease, box-shadow 0.3s ease; position: relative; display: flex; flex-direction: column;">
+                <div class="card-header" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); padding: 1.5rem; color: white;">
+                    <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">{{ $competition->name }}</h3>
+                </div>
+                <div class="card-body" style="padding: 1.5rem; flex: 1; display: flex; flex-direction: column;">
+                    <div class="date-badge" style="display: inline-flex; align-items: center; gap: 0.5rem; background: #eff6ff; color: var(--primary); padding: 0.5rem 1rem; border-radius: 50px; font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; align-self: flex-start;">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>{{ $competition->start_date->format('d M') }} - {{ $competition->end_date->format('d M Y') }}</span>
+                    </div>
+                    
+                    <p style="color: #64748b; line-height: 1.6; margin-bottom: 1.5rem;">
+                        {{ Str::limit($competition->description, 100) }}
+                    </p>
+
+                    @if($competition->activeCategories->isNotEmpty())
+                    <div class="categories-list" style="margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem; border-radius: 8px;">
+                        <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--primary); font-weight: 600;">Kategori:</h4>
+                        <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.875rem; color: #475569;">
+                            @foreach($competition->activeCategories as $category)
+                            <li style="margin-bottom: 0.25rem;">
+                                <strong>{{ $category->name }}</strong>
+                                @if($category->description)
+                                <span style="display: block; font-size: 0.8rem; color: #94a3b8; margin-top: 0.1rem;">{{ Str::limit($category->description, 60) }}</span>
+                                @endif
+                            </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    @endif
+                    
+                    <div class="card-footer" style="margin-top: auto;">
+                        <a href="#registration" onclick="selectCompetition({{ $competition->id }})" class="btn btn-primary" style="width: 100%; text-align: center; border-radius: 8px;">
+                            Daftar Sekarang <i class="fas fa-arrow-right" style="margin-left: 0.5rem;"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+</section>
+
+<script>
+function selectCompetition(id) {
+    const select = document.getElementById('competition_id');
+    if(select) {
+        select.value = id;
+        // Trigger change event manually to update categories
+        const event = new Event('change');
+        select.dispatchEvent(event);
+    }
+}
+</script>
+@endif
+
 <!-- Peserta -->
 <section class="features" id="features">
     <div class="container">

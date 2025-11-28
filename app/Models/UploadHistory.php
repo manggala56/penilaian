@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class UploadHistory extends Model
 {
-    use HasFactory;
+    use HasFactory, \Illuminate\Database\Eloquent\SoftDeletes;
 
     protected $fillable = [
         'participant_id',

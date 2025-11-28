@@ -16,13 +16,11 @@ class SettingResource extends Resource
     protected static ?string $model = Setting::class;
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
-
-    protected static ?string $navigationLabel = 'Pengaturan';
-
+    protected static ?string $navigationIcon = 'heroicon-o-clock';
+    protected static ?string $navigationLabel = 'Riwayat Pendaftaran';
     protected static ?string $navigationGroup = 'Manajemen Sistem';
+    protected static ?int $navigationSort = 101;
 
-    protected static ?int $navigationSort = 99;
     public static function canViewAny(): bool
     {
         return Auth::user()->role !== 'juri';

@@ -78,7 +78,9 @@ class ParticipantResource extends Resource
                             ->label('Email')
                             ->email()
                             ->required()
-                            ->unique(ignoreRecord: true)
+                            ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                return $rule->whereNull('deleted_at');
+                            })
                             ->maxLength(255),
                         Forms\Components\TextInput::make('phone')
                             ->label('Nomor Telepon')
@@ -498,5 +500,13 @@ class ParticipantResource extends Resource
         $query->orderBy('evaluations_count', 'asc');
         $query->orderBy('evaluations_avg_final_score', 'desc');
         return $query;
+    }
+
+    public static function getSoftDeletingScope(): ?string
+    {
+        if (Auth::user()->role === 'superadmin') {
+            return \Illuminate\Database\Eloquent\SoftDeletingScope::class;
+        }
+        return null;
     }
 }

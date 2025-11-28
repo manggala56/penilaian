@@ -194,11 +194,18 @@ class CompetitionResource extends Resource
                         ->send();
                 }),
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->label('Arsipkan')
+                    ->modalHeading('Arsipkan Lomba')
+                    ->modalDescription('Lomba ini akan diarsipkan beserta semua data terkait (Kategori, Peserta, Nilai). Hanya Superadmin yang dapat memulihkannya. Lanjutkan?'),
+                Tables\Actions\ForceDeleteAction::make(),
+                Tables\Actions\RestoreAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\ForceDeleteBulkAction::make(),
+                    Tables\Actions\RestoreBulkAction::make(),
                 ]),
             ]);
     }
@@ -210,6 +217,17 @@ class CompetitionResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (Auth::user()->role === 'superadmin') {
+            $query->withTrashed();
+        }
+
+        return $query;
+    }
+
     public static function getPages(): array
     {
         return [
@@ -217,5 +235,34 @@ class CompetitionResource extends Resource
             'create' => Pages\CreateCompetition::route('/create'),
             'edit' => Pages\EditCompetition::route('/{record}/edit'),
         ];
+    }
+
+    public static function getSoftDeletingScope(): ?string
+    {
+        // Only superadmin can see trashed records
+        if (Auth::user()->role === 'superadmin') {
+            return \Illuminate\Database\Eloquent\SoftDeletingScope::class;
+        }
+        return null; // Others cannot see trashed
+    }
+
+    public static function canRestore(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return Auth::user()->role === 'superadmin';
+    }
+
+    public static function canRestoreAny(): bool
+    {
+        return Auth::user()->role === 'superadmin';
+    }
+
+    public static function canForceDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return Auth::user()->role === 'superadmin';
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return Auth::user()->role === 'superadmin';
     }
 }

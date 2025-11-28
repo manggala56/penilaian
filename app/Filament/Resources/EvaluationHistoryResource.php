@@ -27,7 +27,7 @@ class EvaluationHistoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return Auth::user()->role === 'admin';
+        return Auth::user()->role === 'admin' || Auth::user()->role === 'superadmin';
     }
 
     public static function table(Table $table): Table

@@ -25,7 +25,7 @@ class ManageSettings extends Page implements Forms\Contracts\HasForms
 
     public static function canAccess(): bool
     {
-        return Auth::user()->role === 'admin';
+        return Auth::user()->role === 'admin' || Auth::user()->role === 'superadmin';
     }
 
     public function mount(): void

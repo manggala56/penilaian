@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Competition extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     protected $fillable = [
         'name',
         'description',
@@ -23,6 +25,25 @@ class Competition extends Model
         'end_date' => 'date',
         'is_active' => 'boolean'
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleted(function ($competition) {
+            // When competition is soft deleted, delete all categories individually to trigger events
+            $competition->categories->each(function ($category) {
+                $category->delete();
+            });
+        });
+
+        static::restored(function ($competition) {
+            // When competition is restored, restore all categories individually
+            $competition->categories()->withTrashed()->get()->each(function ($category) {
+                $category->restore();
+            });
+        });
+    }
 
     public function categories(): HasMany
     {
