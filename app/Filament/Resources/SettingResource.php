@@ -37,7 +37,9 @@ class SettingResource extends Resource
                             ->label('Kunci')
                             ->required()
                             ->maxLength(255)
-                            ->unique(ignoreRecord: true),
+                            ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule, Forms\Get $get) {
+                                return $rule->where('competition_id', $get('competition_id'));
+                            }),
                         Forms\Components\Select::make('type')
                             ->label('Tipe')
                             ->options([
@@ -47,6 +49,7 @@ class SettingResource extends Resource
                                 'url' => 'URL',
                                 'color' => 'Warna',
                                 'textarea' => 'Teks Panjang',
+                                'datetime' => 'Tanggal & Waktu',
                             ])
                             ->required()
                             ->live(),
@@ -62,6 +65,10 @@ class SettingResource extends Resource
                             ->label('Nilai')
                             ->required()
                             ->visible(fn (Forms\Get $get) => $get('type') === 'textarea'),
+                        Forms\Components\DateTimePicker::make('value')
+                            ->label('Nilai')
+                            ->required()
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'datetime'),
                         Forms\Components\Select::make('group')
                             ->label('Grup')
                             ->options([
@@ -70,7 +77,14 @@ class SettingResource extends Resource
                                 'contact' => 'Kontak',
                                 'competition' => 'Lomba',
                             ])
-                            ->required(),
+                            ->required()
+                            ->live(),
+                        Forms\Components\Select::make('competition_id')
+                            ->label('Lomba (Opsional)')
+                            ->relationship('competition', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->visible(fn (Forms\Get $get) => $get('group') === 'competition'),
                     ])->columns(2),
             ]);
     }
@@ -92,6 +106,10 @@ class SettingResource extends Resource
                 Tables\Columns\TextColumn::make('group')
                     ->label('Grup')
                     ->badge(),
+                Tables\Columns\TextColumn::make('competition.name')
+                    ->label('Lomba')
+                    ->placeholder('Global')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('Diperbarui')
                     ->dateTime()

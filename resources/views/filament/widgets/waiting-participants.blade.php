@@ -18,9 +18,16 @@
                     <td class="px-6 py-4">{{ $participant->category->name }}</td>
                     <td class="px-6 py-4">{{ Str::limit($participant->innovation_title, 50) }}</td>
                     <td class="px-6 py-4">
-                        <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
-                            Belum Lengkap
-                        </span>
+                        <div class="flex flex-col gap-2">
+                            @foreach($participant->assigned_judges_status as $judgeStatus)
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ $judgeStatus['name'] }}</span>
+                                    <span class="bg-{{ $judgeStatus['color'] }}-100 text-{{ $judgeStatus['color'] }}-800 px-2 py-0.5 rounded dark:bg-{{ $judgeStatus['color'] }}-900 dark:text-{{ $judgeStatus['color'] }}-300">
+                                        {{ $judgeStatus['status'] }}
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
                     </td>
                 </tr>
             @empty

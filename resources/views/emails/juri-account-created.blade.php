@@ -10,7 +10,7 @@
         <p>Anda telah didaftarkan sebagai <strong>Juri</strong> pada Lomba Inovasi Kabupaten Nganjuk. Berikut adalah detail akun Anda untuk login ke dalam sistem penilaian:</p>
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>URL Login:</strong> <a href="{{ url('/admin/login') }}">{{ url('/admin/login') }}</a></p>
+            <p style="margin: 5px 0;"><strong>URL Login:</strong> <a href="{{ url('/penilaian/login') }}">{{ url('/penilaian/login') }}</a></p>
             <p style="margin: 5px 0;"><strong>Email:</strong> {{ $user->email }}</p>
             <p style="margin: 5px 0;"><strong>Password:</strong> <span style="font-family: monospace; background-color: #e5e7eb; padding: 2px 5px; border-radius: 3px;">{{ $password }}</span></p>
         </div>

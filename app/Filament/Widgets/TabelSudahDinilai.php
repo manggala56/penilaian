@@ -9,40 +9,19 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
-use App\Filament\Resources\EvaluationResource; // Pastikan import ini ada
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class TabelSudahDinilai extends BaseWidget
 {
     use InteractsWithPageFilters;
-    protected int | string | array $columnSpan = 'full'; // Tampilan penuh
+
+    protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'Data Sudah Dinilai';
-    protected static ?int $sort = 2; // Urutan tampilan widget
+    protected static ?int $sort = 2;
 
     public static function canView(): bool
     {
         return Auth::user()->role === 'juri';
-    }
-
-    public function mount(): void
-    {
-        $this->table = $this->makeTable();
-    }
-
-    public function booted(): void
-    {
-        if (! isset($this->table)) {
-            $this->bootedInteractsWithTable();
-        }
-    }
-
-    public function getTable(): Table
-    {
-        if (! isset($this->table)) {
-            $this->bootedInteractsWithTable();
-        }
-
-        return $this->table;
     }
 
     public function table(Table $table): Table
@@ -56,6 +35,10 @@ class TabelSudahDinilai extends BaseWidget
                     ->label('Nama Peserta')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('innovation_title')
+                    ->label('Judul Inovasi')
+                    ->limit(30)
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Kategori'),
                 Tables\Columns\TextColumn::make('final_score')
@@ -72,31 +55,29 @@ class TabelSudahDinilai extends BaseWidget
                     ->color('success'),
             ])
             ->actions([
-
             ]);
     }
 
     private function getFilteredQuery(): Builder
     {
         $juriId = Auth::id();
-        $activeStageIds = Competition::where('is_active', true)->pluck('active_stage_id')->toArray();
+        $activeStageIds = Competition::where('is_active', true)
+            ->pluck('active_stage_id')
+            ->filter()
+            ->toArray();
 
-        // Ambil query dasar (sama seperti stats)
         $query = $this->getBaseParticipantQuery();
 
-        // Filter HANYA yang punya evaluasi di stage aktif
         return $query->whereHas('evaluations', function (Builder $q) use ($juriId, $activeStageIds) {
             $q->where('user_id', $juriId)
               ->whereIn('competition_stage_id', $activeStageIds);
         });
     }
 
-    // Copy paste method getBaseParticipantQuery() dari file StatsWidget di sini juga
     private function getBaseParticipantQuery(): Builder
     {
         $activeCompetitions = Competition::where('is_active', true)->with('activeStage', 'categories')->get();
         
-        // Filter berdasarkan dashboard filter
         $competitionId = $this->filters['competition_id'] ?? null;
         if ($competitionId) {
             $activeCompetitions = $activeCompetitions->where('id', $competitionId);

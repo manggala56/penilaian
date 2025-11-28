@@ -135,13 +135,31 @@ class PenilaianJuriResource extends Resource
     {
         return $table
         ->header(function () {
-            $status = Setting::getJudgingStatus();
+            // We need to determine the context. Since this is a table header, we might be viewing a specific category filter.
+            // But the table shows participants from potentially multiple competitions if no filter is applied (though navigation restricts it).
+            // Let's try to get the competition from the filter if available.
+            $competitionId = null;
+            $categoryId = request()->input('tableFilters.category.value');
+            if ($categoryId) {
+                $category = \App\Models\Category::find($categoryId);
+                $competitionId = $category?->competition_id;
+            }
+
+            // If no filter, we can't determine a single competition easily for the header alert.
+            // But usually Juri navigates via the sidebar which sets the filter.
+            // If we can't find it, we might fall back to global or just not show the alert if it's mixed.
+            // For now, let's try to get it.
+
+            $status = Setting::getJudgingStatus($competitionId);
 
             if ($status === 'not_started') {
-                $start = Setting::first()->judging_start->format('d M Y H:i');
+                // Try to get start date for message
+                $start = 'jadwal yang ditentukan';
+                // This part is tricky because getJudgingStatus logic is encapsulated.
+                // Let's just show a generic message or improve getJudgingStatus to return date.
                 return view('filament.components.alert-warning', [
                     'title' => 'Penilaian Belum Dimulai',
-                    'message' => "Fitur penilaian akan dibuka pada: {$start}"
+                    'message' => "Fitur penilaian belum dibuka untuk kompetisi ini."
                 ]);
             }
 
@@ -386,7 +404,8 @@ class PenilaianJuriResource extends Resource
                 ->color('primary')
                 ->button()
                 ->visible(function (Participant $record) {
-                    if (Setting::getJudgingStatus() !== 'open') {
+                    $competitionId = $record->category?->competition_id;
+                    if (Setting::getJudgingStatus($competitionId) !== 'open') {
                         return false;
                     }
                     $activeStageId = $record->category?->competition?->active_stage_id;
@@ -409,7 +428,14 @@ class PenilaianJuriResource extends Resource
             ], position: \Filament\Tables\Enums\ActionsPosition::BeforeCells)
 
             ->description(function() {
-                $status = Setting::getJudgingStatus();
+                $competitionId = null;
+                $categoryId = request()->input('tableFilters.category.value');
+                if ($categoryId) {
+                    $category = \App\Models\Category::find($categoryId);
+                    $competitionId = $category?->competition_id;
+                }
+                
+                $status = Setting::getJudgingStatus($competitionId);
                 if ($status === 'not_started') {
                     return new HtmlString('<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50" role="alert"><span class="font-medium">Penilaian Belum Dimulai!</span> Harap tunggu jadwal yang ditentukan.</div>');
                 }

@@ -144,13 +144,46 @@ class StatsOverview extends BaseWidget implements HasActions, HasForms
                 $unevaluatedParticipants = collect();
 
                 foreach ($participants as $participant) {
-                    $specificJudgesCount = $judges->filter(function ($juri) use ($participant) {
+                    $assignedJudges = collect();
+                    
+                    // 1. Universal Judges
+                    $universalJudges = $judges->where('can_judge_all_categories', true);
+                    foreach ($universalJudges as $judge) {
+                        $hasEvaluated = $participant->evaluations
+                            ->where('competition_stage_id', $stageId)
+                            ->where('user_id', $judge->user_id)
+                            ->isNotEmpty();
+                            
+                        $assignedJudges->push([
+                            'name' => $judge->name,
+                            'status' => $hasEvaluated ? 'Sudah Menilai' : 'Belum Menilai',
+                            'color' => $hasEvaluated ? 'success' : 'danger',
+                        ]);
+                    }
+
+                    // 2. Specific Category Judges
+                    $specificJudges = $judges->filter(function ($juri) use ($participant) {
                         return !$juri->can_judge_all_categories && 
                                $juri->categories->contains('id', $participant->category_id);
-                    })->count();
+                    });
 
-                    $totalRequiredJudges = $universalJudgesCount + $specificJudgesCount;
+                    foreach ($specificJudges as $judge) {
+                        $hasEvaluated = $participant->evaluations
+                            ->where('competition_stage_id', $stageId)
+                            ->where('user_id', $judge->user_id)
+                            ->isNotEmpty();
 
+                        $assignedJudges->push([
+                            'name' => $judge->name,
+                            'status' => $hasEvaluated ? 'Sudah Menilai' : 'Belum Menilai',
+                            'color' => $hasEvaluated ? 'success' : 'danger',
+                        ]);
+                    }
+
+                    $participant->assigned_judges_status = $assignedJudges;
+
+                    // Check if fully evaluated
+                    $totalRequiredJudges = $universalJudges->count() + $specificJudges->count();
                     $actualEvaluationsCount = $participant->evaluations
                         ->where('competition_stage_id', $stageId)
                         ->unique('user_id')

@@ -26,4 +26,9 @@ class EvaluationHistory extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function evaluation()
+    {
+        return $this->belongsTo(Evaluation::class)->withTrashed();
+    }
 }

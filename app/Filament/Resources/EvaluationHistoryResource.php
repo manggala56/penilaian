@@ -43,7 +43,14 @@ class EvaluationHistoryResource extends Resource
                     ->label('Nama Juri')
                     ->searchable()
                     ->sortable(),
-                // Participant column removed
+                Tables\Columns\TextColumn::make('participant_name')
+                    ->label('Nama Peserta')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('evaluation.participant.innovation_title')
+                    ->label('Judul Inovasi')
+                    ->limit(30)
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('action')
                     ->label('Aktivitas')
                     ->badge()
@@ -121,7 +128,14 @@ class EvaluationHistoryResource extends Resource
             }
         }
 
-        // 3. Default: kembalikan value as string
+        // 3. Handle Participant Object/Array
+        if ($key === 'participant' && (is_array($value) || is_object($value))) {
+            // If it's the participant object, we probably don't need to show the whole JSON
+            // We can just show the name if available, or nothing since we have participant_name column
+            return is_array($value) ? ($value['name'] ?? 'Participant Data') : 'Participant Data';
+        }
+
+        // 4. Default: kembalikan value as string
         return is_array($value) ? json_encode($value) : (string) $value;
     }
 

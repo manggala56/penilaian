@@ -32,27 +32,6 @@ class TopParticipants extends BaseWidget
         return Auth::user()->role !== 'juri';
     }
 
-    public function mount(): void
-    {
-        $this->table = $this->makeTable();
-    }
-
-    public function booted(): void
-    {
-        if (! isset($this->table)) {
-            $this->bootedInteractsWithTable();
-        }
-    }
-
-    public function getTable(): Table
-    {
-        if (! isset($this->table)) {
-            $this->bootedInteractsWithTable();
-        }
-
-        return $this->table;
-    }
-
     public function table(Table $table): Table
     {
         return $table
