@@ -9,6 +9,8 @@ use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\JuriAccountCreated;
 
 class CreateJuri extends CreateRecord
 {
@@ -34,6 +36,7 @@ class CreateJuri extends CreateRecord
                 'role'=> 'juri',
                 'password' => Hash::make($data['password'] ?? $this->getUserDataFromForm('password')),
             ]);
+            $rawPassword = $data['password'] ?? $this->getUserDataFromForm('password');
             $categoryId = $data['can_judge_all_categories'] ? null : $data['category_id'];
 
             \Log::info('Creating Juri with data:', [
@@ -51,6 +54,15 @@ class CreateJuri extends CreateRecord
             ]);
 
             \DB::commit();
+
+            // Kirim Email ke Juri
+            try {
+                Mail::to($user->email)->send(new JuriAccountCreated($user, $rawPassword));
+            } catch (\Exception $e) {
+                \Log::error('Gagal mengirim email akun juri: ' . $e->getMessage());
+                // Jangan rollback, akun tetap dibuat
+            }
+
             return $juri;
 
         } catch (\Exception $e) {

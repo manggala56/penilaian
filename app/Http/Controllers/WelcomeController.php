@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ParticipantRegistered;
 
 class WelcomeController extends Controller
 {
@@ -157,6 +159,14 @@ class WelcomeController extends Controller
             ]);
 
             DB::commit();
+
+            // Kirim Email Notifikasi
+            try {
+                Mail::to($participant->email)->send(new ParticipantRegistered($participant));
+            } catch (\Exception $e) {
+                Log::error('Gagal mengirim email pendaftaran: ' . $e->getMessage());
+                // Jangan rollback transaksi hanya karena email gagal
+            }
 
             return response()->json([
                 'success' => true,

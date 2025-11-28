@@ -10,7 +10,6 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
-use App\Filament\Resources\EvaluationResource;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class TabelBelumDinilai extends BaseWidget
@@ -23,6 +22,18 @@ class TabelBelumDinilai extends BaseWidget
     public static function canView(): bool
     {
         return Auth::user()->role === 'juri';
+    }
+
+    public function mount(): void
+    {
+        // parent::mount(); // TableWidget might not have mount
+    }
+
+    public function booted(): void
+    {
+        if (! isset($this->table)) {
+            $this->table = $this->makeTable();
+        }
     }
 
     public function table(Table $table): Table
