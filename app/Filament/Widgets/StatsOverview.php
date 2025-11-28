@@ -46,10 +46,11 @@ class StatsOverview extends BaseWidget implements HasActions, HasForms
         $stageId = $activeStage->id;
         $competitionId = $activeCompetition->id;
 
-        // Get all approved participants for this competition
+        // Get all approved participants for this competition who are in the active stage
         $participants = Participant::query()
             ->whereHas('category', fn ($q) => $q->where('competition_id', $competitionId))
             ->where('is_approved', true)
+            ->where('current_stage_order', $activeStage->stage_order)
             ->with(['category', 'evaluations' => fn ($q) => $q->where('competition_stage_id', $stageId)])
             ->get();
 
@@ -135,6 +136,7 @@ class StatsOverview extends BaseWidget implements HasActions, HasForms
                 $participants = Participant::query()
                     ->whereHas('category', fn ($q) => $q->where('competition_id', $competitionId))
                     ->where('is_approved', true)
+                    ->where('current_stage_order', $activeCompetition->activeStage->stage_order)
                     ->with(['category', 'evaluations' => fn ($q) => $q->where('competition_stage_id', $stageId)])
                     ->get();
 
