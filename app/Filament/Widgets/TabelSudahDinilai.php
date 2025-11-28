@@ -26,14 +26,23 @@ class TabelSudahDinilai extends BaseWidget
 
     public function mount(): void
     {
-        // parent::mount();
+        $this->table = $this->makeTable();
     }
 
     public function booted(): void
     {
         if (! isset($this->table)) {
-            $this->table = $this->makeTable();
+            $this->bootedInteractsWithTable();
         }
+    }
+
+    public function getTable(): Table
+    {
+        if (! isset($this->table)) {
+            $this->bootedInteractsWithTable();
+        }
+
+        return $this->table;
     }
 
     public function table(Table $table): Table

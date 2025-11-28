@@ -26,14 +26,23 @@ class TabelBelumDinilai extends BaseWidget
 
     public function mount(): void
     {
-        // parent::mount(); // TableWidget might not have mount
+        $this->table = $this->makeTable();
     }
 
     public function booted(): void
     {
         if (! isset($this->table)) {
-            $this->table = $this->makeTable();
+            $this->bootedInteractsWithTable();
         }
+    }
+
+    public function getTable(): Table
+    {
+        if (! isset($this->table)) {
+            $this->bootedInteractsWithTable();
+        }
+
+        return $this->table;
     }
 
     public function table(Table $table): Table
